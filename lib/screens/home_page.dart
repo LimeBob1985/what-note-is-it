@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'package:intl/intl.dart';
 import 'settings_page.dart';
 
 class HomePage extends StatelessWidget {
@@ -19,10 +21,11 @@ class HomePage extends StatelessWidget {
                 Stack(
                   children: [
                     Text(
-                      "WHAT NOTE\nIS IT?",
+                      "WHAT\nNOTE\nIS IT?",
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 48,
+                        fontSize: 40, // Ridotto da 48
+                        height: 1.1,  // Aumentato da 0.9 per distanziare le righe
                         fontWeight: FontWeight.w900,
                         letterSpacing: 2,
                         foreground: Paint()
@@ -32,11 +35,12 @@ class HomePage extends StatelessWidget {
                       ),
                     ),
                     const Text(
-                      "WHAT NOTE\nIS IT?",
+                      "WHAT\nNOTE\nIS IT?",
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 48,
+                        fontSize: 40, // Ridotto da 48
+                        height: 1.1,  // Aumentato da 0.9 per distanziare le righe
                         fontWeight: FontWeight.w900,
                         letterSpacing: 2,
                         shadows: [
@@ -51,29 +55,29 @@ class HomePage extends StatelessWidget {
                 Container(width: 60, height: 4, color: Colors.orangeAccent),
                 const SizedBox(height: 60),
 
-                _mainButton(
-                  context,
-                  title: "GIOCA",
-                  icon: Icons.play_arrow_rounded,
-                  onPressed: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsPage()));
-                  },
-                ),
-                const SizedBox(height: 20),
-
                 Row(
                   children: [
+                    _mainButton(
+                      context,
+                      title: "GIOCA",
+                      icon: Icons.play_arrow_rounded,
+                      onPressed: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsPage()));
+                      },
+                    ),
+                    const SizedBox(width: 10),
                     _secondaryButton(
                       context,
                       title: "SCORE",
                       icon: Icons.emoji_events,
                       onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ScoresPage())),
                     ),
-                    const SizedBox(width: 20),
+                    const SizedBox(width: 10),
                     _secondaryButton(
                       context,
-                      title: "STATISTICHE",
+                      title: "STATS",
                       icon: Icons.bar_chart,
+                      fontSize: 11,
                       onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const StatsPage())),
                     ),
                   ],
@@ -87,52 +91,71 @@ class HomePage extends StatelessWidget {
   }
 
   Widget _mainButton(BuildContext context, {required String title, required IconData icon, required VoidCallback onPressed}) {
-    return SizedBox(
-      width: double.infinity,
-      height: 70,
-      child: ElevatedButton.icon(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.orangeAccent,
-          foregroundColor: Colors.black,
-          elevation: 5,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(35)),
+    return Expanded(
+      child: SizedBox(
+        height: 60,
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orangeAccent,
+            foregroundColor: Colors.black,
+            padding: EdgeInsets.zero,
+            elevation: 5,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          ),
+          onPressed: onPressed,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 24),
+              Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            ],
+          ),
         ),
-        onPressed: onPressed,
-        icon: Icon(icon, size: 30),
-        label: Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
       ),
     );
   }
 
-  Widget _secondaryButton(BuildContext context, {required String title, required IconData icon, required VoidCallback onPressed}) {
+  Widget _secondaryButton(BuildContext context, {required String title, required IconData icon, required VoidCallback onPressed, double fontSize = 12}) {
     return Expanded(
       child: SizedBox(
         height: 60,
-        child: OutlinedButton.icon(
+        child: OutlinedButton(
           style: OutlinedButton.styleFrom(
             foregroundColor: Colors.white,
+            padding: EdgeInsets.zero,
             side: const BorderSide(color: Colors.white24, width: 2),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           ),
           onPressed: onPressed,
-          icon: Icon(icon, color: Colors.orangeAccent),
-          label: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: Colors.orangeAccent, size: 24),
+              Text(title, style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.bold)),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// --- SCHERMATA PUNTEGGI (SCORES) ---
 class ScoresPage extends StatelessWidget {
   const ScoresPage({super.key});
+
+  Future<List<Map<String, dynamic>>> _getGameHistory(SharedPreferences prefs) async {
+    String? historyJson = prefs.getString("game_history");
+    if (historyJson == null) return [];
+    List<dynamic> decoded = jsonDecode(historyJson);
+    return decoded.map((e) => Map<String, dynamic>.from(e)).toList().reversed.toList();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F0F),
       appBar: AppBar(
-        title: const Text("RECORD PERSONALI", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("SCORE STORICI", style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.orangeAccent,
@@ -148,19 +171,49 @@ class ScoresPage extends StatelessWidget {
             if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
             final prefs = snapshot.data!;
             
-            int score = prefs.getInt("last_score") ?? 0;
-            int total = prefs.getInt("last_total") ?? 0;
-            int correct = prefs.getInt("last_correct") ?? 0;
-            int wrong = prefs.getInt("last_wrong") ?? 0;
-            int bestIndovina = prefs.getInt("best_INDOVINA_12_0") ?? 0; 
+            int bestScore = prefs.getInt("best_INDOVINA_12_0") ?? 0;
+            int bestCorrect = prefs.getInt("best_INDOVINA_12_0_correct") ?? 0;
+            int bestWrong = prefs.getInt("best_INDOVINA_12_0_wrong") ?? 0;
 
-            return ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                _buildScoreCard("ULTIMA SESSIONE", score, total, correct, wrong),
-                const SizedBox(height: 20),
-                _buildScoreCard("MIGLIOR RECORD (INDOVINA 12 T.)", bestIndovina, 0, 0, 0, isBest: true),
-              ],
+            return FutureBuilder<List<Map<String, dynamic>>>(
+              future: _getGameHistory(prefs),
+              builder: (context, historySnapshot) {
+                final history = historySnapshot.data ?? [];
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(20),
+                  itemCount: history.length + 1,
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 25),
+                        child: _buildScoreCard(
+                          "MIGLIOR RECORD", 
+                          bestScore, 
+                          bestCorrect, 
+                          bestWrong,
+                          "INDOVINA - 12 TASTI",
+                          isBest: true
+                        ),
+                      );
+                    }
+                    
+                    final game = history[index - 1];
+                    String displayMode = (game['mode'] ?? "N.D.").toString().toUpperCase();
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildScoreCard(
+                        game['date'] ?? "Data sconosciuta",
+                        game['score'] ?? 0,
+                        game['correct'] ?? 0,
+                        game['wrong'] ?? 0,
+                        displayMode,
+                      ),
+                    );
+                  },
+                );
+              },
             );
           },
         ),
@@ -168,31 +221,53 @@ class ScoresPage extends StatelessWidget {
     );
   }
 
-  Widget _buildScoreCard(String title, int score, int total, int correct, int wrong, {bool isBest = false}) {
+  Widget _buildScoreCard(String title, int score, int correct, int wrong, String mode, {bool isBest = false}) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isBest ? Colors.orangeAccent : Colors.white10),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: isBest ? Colors.orangeAccent : Colors.white10, width: isBest ? 2 : 1),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(color: Colors.white54, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
-          Text("$score", style: TextStyle(color: isBest ? Colors.orangeAccent : Colors.greenAccent, fontSize: 48, fontWeight: FontWeight.bold)),
-          const Text("PUNTI", style: TextStyle(color: Colors.white24, fontSize: 12)),
-          if (!isBest) ...[
-            const Divider(height: 30, color: Colors.white10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _statMini(total.toString(), "TOTALI"),
-                _statMini(correct.toString(), "ESATTE", color: Colors.green),
-                _statMini(wrong.toString(), "ERRORI", color: Colors.red),
-              ],
-            )
-          ]
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(title.toUpperCase(), style: TextStyle(color: isBest ? Colors.orangeAccent : Colors.white54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+              if (isBest) const Icon(Icons.star, color: Colors.orangeAccent, size: 14),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("$score", style: TextStyle(color: isBest ? Colors.orangeAccent : Colors.white, fontSize: 34, fontWeight: FontWeight.w900, height: 1)),
+                  const Text("PUNTI TOTALI", style: TextStyle(color: Colors.white24, fontSize: 8, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(mode, style: const TextStyle(color: Colors.white38, fontSize: 7, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      _statMini(correct.toString(), "ESATTE", color: Colors.greenAccent),
+                      const SizedBox(width: 15),
+                      _statMini(wrong.toString(), "ERRATE", color: Colors.redAccent),
+                      const SizedBox(width: 15),
+                      _statMini((correct + wrong).toString(), "DATE", color: Colors.blueAccent),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -201,14 +276,13 @@ class ScoresPage extends StatelessWidget {
   Widget _statMini(String value, String label, {Color color = Colors.white}) {
     return Column(
       children: [
-        Text(value, style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.bold)),
-        Text(label, style: const TextStyle(color: Colors.white38, fontSize: 10)),
+        Text(value, style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.bold)),
+        Text(label, style: const TextStyle(color: Colors.white38, fontSize: 7, fontWeight: FontWeight.bold)),
       ],
     );
   }
 }
 
-// --- SCHERMATA STATISTICHE (CON SCORRIMENTO ORIZZONTALE) ---
 class StatsPage extends StatefulWidget {
   const StatsPage({super.key});
 
@@ -234,10 +308,19 @@ class _StatsPageState extends State<StatsPage> {
       DateTime date = DateTime.now().subtract(Duration(days: i));
       String dateStr = date.toString().split(' ')[0]; 
       
+      int correctToday = prefs.getInt("stats_correct_$dateStr") ?? 0;
+      int totalToday = prefs.getInt("stats_total_$dateStr") ?? 0;
       double accuracy = prefs.getDouble("stats_accuracy_$dateStr") ?? 0.0;
+
+      if (accuracy == 0 && totalToday > 0) {
+        accuracy = correctToday / totalToday;
+      }
+
+      bool hasPlayed = totalToday > 0;
       
       tempSpecs.add({
         "accuracy": accuracy,
+        "hasPlayed": hasPlayed,
         "dayName": _getDayName(date.weekday),
         "dayNumber": date.day,
         "monthName": _getMonthName(date.month),
@@ -281,12 +364,7 @@ class _StatsPageState extends State<StatsPage> {
           : Padding(
               padding: const EdgeInsets.symmetric(vertical: 20),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    child: Text("PRECISIONE NEL TEMPO", style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
-                  ),
                   const SizedBox(height: 30),
                   Expanded(
                     child: SingleChildScrollView(
@@ -301,7 +379,8 @@ class _StatsPageState extends State<StatsPage> {
                             data['dayName'], 
                             data['dayNumber'].toString(),
                             data['monthName'],
-                            isToday: data['isToday']
+                            isToday: data['isToday'],
+                            hasPlayed: data['hasPlayed'],
                           );
                         }).toList(),
                       ),
@@ -316,29 +395,35 @@ class _StatsPageState extends State<StatsPage> {
     );
   }
 
-  Widget _bar(double heightFactor, String dayName, String dayNum, String month, {bool isToday = false}) {
+  Widget _bar(double accuracy, String dayName, String dayNum, String month, {bool isToday = false, bool hasPlayed = false}) {
+    const double barHeight = 150.0;
+    
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          Text("${(heightFactor * 100).toInt()}%", 
-            style: TextStyle(color: isToday ? Colors.blueAccent : Colors.white10, fontSize: 10, fontWeight: FontWeight.bold)
+          Text(
+            hasPlayed ? "${(accuracy * 100).toInt()}%" : "", 
+            style: TextStyle(color: isToday ? Colors.blueAccent : Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)
           ),
           const SizedBox(height: 5),
-          Container(
-            width: 35,
-            height: (MediaQuery.of(context).size.height * 0.4) * heightFactor + 4, 
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: isToday 
-                  ? [Colors.blueAccent, Colors.blue.shade900]
-                  : [Colors.blueAccent.withValues(alpha: 0.3), Colors.blueAccent.withValues(alpha: 0.1)],
-              ),
-              borderRadius: BorderRadius.circular(6),
-              border: isToday ? Border.all(color: Colors.white24) : null,
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              width: 30,
+              height: barHeight,
+              color: hasPlayed ? Colors.redAccent.withOpacity(0.8) : Colors.white.withOpacity(0.03), 
+              child: hasPlayed ? Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Container(
+                    width: 30,
+                    height: barHeight * accuracy,
+                    color: Colors.greenAccent.withOpacity(0.8),
+                  ),
+                ],
+              ) : null,
             ),
           ),
           const SizedBox(height: 10),

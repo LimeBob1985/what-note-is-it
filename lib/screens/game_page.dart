@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:math';
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 import '../widgets/guitar_neck_painter.dart'; 
 
 class GamePage extends StatefulWidget {
@@ -54,21 +56,63 @@ class _GamePageState extends State<GamePage> {
       final prefs = await SharedPreferences.getInstance();
       String key = "best_${widget.mode}_${widget.frets}_${widget.timer ?? 0}";
       await prefs.setInt(key, correct);
+      await prefs.setInt("${key}_correct", correct);
+      await prefs.setInt("${key}_wrong", wrong);
       setState(() => highScore = correct);
     }
   }
 
+  // CORRETTO: Calcola la precisione basata sul cumulativo reale di oggi
   Future<void> _saveStats() async {
     final prefs = await SharedPreferences.getInstance();
     final String today = DateTime.now().toString().split(' ')[0];
 
+    // Dati istantanei per l'ultima sessione
     await prefs.setInt("last_score", correct);
     await prefs.setInt("last_total", total);
     await prefs.setInt("last_correct", correct);
     await prefs.setInt("last_wrong", wrong);
 
-    double accuracy = total > 0 ? (correct / total) : 0.0;
-    await prefs.setDouble("stats_accuracy_$today", accuracy);
+    // Recupero dati già salvati oggi per calcolare la precisione reale
+    int savedCorrectToday = prefs.getInt("stats_correct_$today") ?? 0;
+    int savedTotalToday = prefs.getInt("stats_total_$today") ?? 0;
+
+    // Totale di oggi = sessioni passate + sessione attuale
+    int currentTotalToday = savedTotalToday + total;
+    int currentCorrectToday = savedCorrectToday + correct;
+
+    double dailyAccuracy = currentTotalToday > 0 ? (currentCorrectToday / currentTotalToday) : 0.0;
+    
+    // Aggiorniamo la precisione visibile nelle statistiche
+    await prefs.setDouble("stats_accuracy_$today", dailyAccuracy);
+  }
+
+  // CORRETTO: Consolda i dati nel database giornaliero e nella cronologia
+  Future<void> _finalizeSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String today = DateTime.now().toString().split(' ')[0];
+
+    int savedCorrectToday = prefs.getInt("stats_correct_$today") ?? 0;
+    int savedTotalToday = prefs.getInt("stats_total_$today") ?? 0;
+    
+    // Somma definitiva dei risultati di questa partita ai totali giornalieri
+    await prefs.setInt("stats_correct_$today", savedCorrectToday + correct);
+    await prefs.setInt("stats_total_$today", savedTotalToday + total);
+
+    // Salvataggio nella cronologia
+    String? historyJson = prefs.getString("game_history");
+    List<dynamic> history = historyJson != null ? jsonDecode(historyJson) : [];
+
+    history.add({
+      'score': correct,
+      'correct': correct,
+      'wrong': wrong,
+      'date': DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now()),
+      'mode': "${widget.mode} - ${widget.frets} TASTI",
+    });
+
+    if (history.length > 50) history.removeAt(0);
+    await prefs.setString("game_history", jsonEncode(history));
   }
 
   void startTimer() {
@@ -86,6 +130,7 @@ class _GamePageState extends State<GamePage> {
   void handleGameOver() {
     _timer?.cancel();
     _saveStats();
+    _finalizeSession(); 
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -227,7 +272,6 @@ class _GamePageState extends State<GamePage> {
   @override
   Widget build(BuildContext context) {
     String headerIndovina = "CHE NOTA È?";
-    // Modificato: ora appare solo il numero romano della corda
     String headerTrova = "${romanNumerals[currentString - 1]} CORDA";
 
     return Scaffold(
@@ -243,6 +287,7 @@ class _GamePageState extends State<GamePage> {
                     icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20), 
                     onPressed: () {
                       _saveStats();
+                      _finalizeSession(); 
                       Navigator.pop(context);
                     }
                   ),
@@ -379,7 +424,6 @@ class _GamePageState extends State<GamePage> {
       width: double.infinity,
       color: Colors.black, 
       child: SafeArea(
-        top: false, 
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly, 
           children: [
