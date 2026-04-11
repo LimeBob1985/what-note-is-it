@@ -1,10 +1,11 @@
+// lib/screens/game_page.dart
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:math';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
-import '../widgets/guitar_neck_painter.dart'; 
+import '../widgets/guitar_neck_painter.dart';
 
 class GamePage extends StatefulWidget {
   final int frets;
@@ -12,9 +13,9 @@ class GamePage extends StatefulWidget {
   final String mode; // "INDOVINA" o "TROVA"
 
   const GamePage({
-    super.key, 
-    required this.frets, 
-    this.timer, 
+    super.key,
+    required this.frets,
+    this.timer,
     required this.mode,
   });
 
@@ -28,13 +29,39 @@ class _GamePageState extends State<GamePage> {
   late int currentString, currentFret;
   late String currentNoteIt;
   bool showHint = false;
-  
+
   List<int> foundFrets = [];
   List<int> targetFrets = [];
 
-  final List<int> stringOpenNotes = [4, 9, 2, 7, 11, 4]; 
-  final List<String> notesIt = ["DO", "DO#/REb", "RE", "RE#/MIb", "MI", "FA", "FA#/SOLb", "SOL", "SOL#/LAb", "LA", "LA#/SIb", "SI"];
-  final List<String> notesEn = ["C", "C#/Db", "D", "D#/Eb", "E", "F", "F#/Gb", "G", "G#/Ab", "A", "A#/Bb", "B"];
+  final List<int> stringOpenNotes = [4, 9, 2, 7, 11, 4];
+  final List<String> notesIt = [
+    "DO",
+    "DO#/REb",
+    "RE",
+    "RE#/MIb",
+    "MI",
+    "FA",
+    "FA#/SOLb",
+    "SOL",
+    "SOL#/LAb",
+    "LA",
+    "LA#/SIb",
+    "SI"
+  ];
+  final List<String> notesEn = [
+    "C",
+    "C#/Db",
+    "D",
+    "D#/Eb",
+    "E",
+    "F",
+    "F#/Gb",
+    "G",
+    "G#/Ab",
+    "A",
+    "A#/Bb",
+    "B"
+  ];
   final List<String> romanNumerals = ["VI", "V", "IV", "III", "II", "I"];
 
   @override
@@ -62,44 +89,41 @@ class _GamePageState extends State<GamePage> {
     }
   }
 
-  // CORRETTO: Calcola la precisione basata sul cumulativo reale di oggi
   Future<void> _saveStats() async {
     final prefs = await SharedPreferences.getInstance();
     final String today = DateTime.now().toString().split(' ')[0];
 
-    // Dati istantanei per l'ultima sessione
     await prefs.setInt("last_score", correct);
     await prefs.setInt("last_total", total);
     await prefs.setInt("last_correct", correct);
     await prefs.setInt("last_wrong", wrong);
 
-    // Recupero dati già salvati oggi per calcolare la precisione reale
     int savedCorrectToday = prefs.getInt("stats_correct_$today") ?? 0;
     int savedTotalToday = prefs.getInt("stats_total_$today") ?? 0;
 
-    // Totale di oggi = sessioni passate + sessione attuale
     int currentTotalToday = savedTotalToday + total;
     int currentCorrectToday = savedCorrectToday + correct;
 
-    double dailyAccuracy = currentTotalToday > 0 ? (currentCorrectToday / currentTotalToday) : 0.0;
-    
-    // Aggiorniamo la precisione visibile nelle statistiche
+    double dailyAccuracy =
+        currentTotalToday > 0 ? (currentCorrectToday / currentTotalToday) : 0.0;
+
     await prefs.setDouble("stats_accuracy_$today", dailyAccuracy);
+    
+    // Assicuriamoci di salvare anche i valori assoluti per la Home
+    await prefs.setInt("stats_correct_$today", currentCorrectToday);
+    await prefs.setInt("stats_total_$today", currentTotalToday);
   }
 
-  // CORRETTO: Consolda i dati nel database giornaliero e nella cronologia
   Future<void> _finalizeSession() async {
     final prefs = await SharedPreferences.getInstance();
     final String today = DateTime.now().toString().split(' ')[0];
 
     int savedCorrectToday = prefs.getInt("stats_correct_$today") ?? 0;
     int savedTotalToday = prefs.getInt("stats_total_$today") ?? 0;
-    
-    // Somma definitiva dei risultati di questa partita ai totali giornalieri
+
     await prefs.setInt("stats_correct_$today", savedCorrectToday + correct);
     await prefs.setInt("stats_total_$today", savedTotalToday + total);
 
-    // Salvataggio nella cronologia
     String? historyJson = prefs.getString("game_history");
     List<dynamic> history = historyJson != null ? jsonDecode(historyJson) : [];
 
@@ -130,30 +154,33 @@ class _GamePageState extends State<GamePage> {
   void handleGameOver() {
     _timer?.cancel();
     _saveStats();
-    _finalizeSession(); 
+    _finalizeSession();
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF222222),
         title: const Text(
-          "GAME OVER", 
+          "GAME OVER",
           textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)
+          style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
         ),
         content: Text(
-          "Hai commesso 3 errori.\nPunteggio finale: $correct", 
+          "Hai commesso 3 errori.\nPunteggio finale: $correct",
           textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.white)
+          style: const TextStyle(color: Colors.white),
         ),
         actionsAlignment: MainAxisAlignment.center,
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context); 
-              Navigator.pop(context); 
+              Navigator.pop(context);
+              Navigator.pop(context);
             },
-            child: const Text("TORNA AL MENU", style: TextStyle(color: Colors.orangeAccent)),
+            child: const Text(
+              "TORNA AL MENU",
+              style: TextStyle(color: Colors.orangeAccent),
+            ),
           ),
         ],
       ),
@@ -178,9 +205,9 @@ class _GamePageState extends State<GamePage> {
     setState(() {
       showHint = false;
       foundFrets.clear();
-      currentString = Random().nextInt(6) + 1; 
+      currentString = Random().nextInt(6) + 1;
       currentFret = Random().nextInt(widget.frets + 1);
-      
+
       int openNoteIndex = stringOpenNotes[currentString - 1];
       int noteIndex = (openNoteIndex + currentFret) % 12;
       currentNoteIt = notesIt[noteIndex];
@@ -245,7 +272,7 @@ class _GamePageState extends State<GamePage> {
   int _getFretFromY(double relativeY, double nutYRatio) {
     if (relativeY < nutYRatio) return 0;
     double currentPos = nutYRatio;
-    double spacingFactor = widget.frets > 12 ? 0.96 : 0.9438; 
+    double spacingFactor = widget.frets > 12 ? 0.96 : 0.9438;
     double tempLength = 1.0;
     double totalRelativeScale = 0;
     for (int i = 0; i < widget.frets; i++) {
@@ -284,43 +311,54 @@ class _GamePageState extends State<GamePage> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20), 
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                     onPressed: () {
                       _saveStats();
-                      _finalizeSession(); 
+                      _finalizeSession();
                       Navigator.pop(context);
-                    }
+                    },
                   ),
                   const Spacer(),
                   if (widget.mode == "INDOVINA")
                     Text(
-                      showHint ? "NOTA: $currentNoteIt" : headerIndovina, 
+                      showHint ? "NOTA: $currentNoteIt" : headerIndovina,
                       style: TextStyle(
-                        color: showHint ? Colors.yellow : Colors.white, 
-                        fontWeight: FontWeight.bold, 
-                        fontSize: 14
-                      )
+                        color: showHint ? Colors.yellow : Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
                   if (widget.mode == "TROVA")
                     Expanded(
                       child: Text(
-                        headerTrova, 
+                        headerTrova,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 18)
+                        style: const TextStyle(
+                          color: Colors.orangeAccent,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
                       ),
                     ),
                   const Spacer(),
-                  if (widget.timer != null) 
+                  if (widget.timer != null)
                     Text(
-                      "⏳ $timeLeft", 
+                      "⏳ $timeLeft",
                       style: TextStyle(
-                        color: timeLeft <= 3 ? Colors.red : Colors.orange, 
-                        fontWeight: FontWeight.bold, 
-                        fontSize: 18
-                      )
+                        color: timeLeft <= 3 ? Colors.red : Colors.orange,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
                     ),
                   IconButton(
-                    icon: Icon(Icons.lightbulb, color: showHint ? Colors.yellow : Colors.white24), 
+                    icon: Icon(
+                      Icons.lightbulb,
+                      color: showHint ? Colors.yellow : Colors.white24,
+                    ),
                     onPressed: () {
                       if (!showHint) {
                         setState(() {
@@ -332,7 +370,7 @@ class _GamePageState extends State<GamePage> {
                           });
                         });
                       }
-                    }
+                    },
                   ),
                 ],
               ),
@@ -341,13 +379,14 @@ class _GamePageState extends State<GamePage> {
               child: Row(
                 children: [
                   Expanded(
-                    flex: 3, 
+                    flex: 3,
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         return GestureDetector(
                           onTapDown: (details) {
                             if (widget.mode == "TROVA") {
-                              double relY = details.localPosition.dy / constraints.maxHeight;
+                              double relY =
+                                  details.localPosition.dy / constraints.maxHeight;
                               int clickedFret = _getFretFromY(relY, 0.05);
                               checkAnswer(clickedFret);
                             }
@@ -355,48 +394,79 @@ class _GamePageState extends State<GamePage> {
                           child: CustomPaint(
                             size: Size.infinite,
                             painter: GuitarNeckPainter(
-                              frets: widget.frets, 
-                              currentString: currentString, 
-                              currentFret: (widget.mode == "TROVA") ? -1 : currentFret,
-                              showAllNotes: (widget.mode == "TROVA" && showHint),
+                              frets: widget.frets,
+                              currentString: currentString,
+                              currentFret:
+                                  (widget.mode == "TROVA") ? -1 : currentFret,
+                              showAllNotes:
+                                  (widget.mode == "TROVA" && showHint),
                               targetNoteIndex: notesIt.indexOf(currentNoteIt),
-                              openNoteIndex: stringOpenNotes[currentString - 1],
+                              openNoteIndex:
+                                  stringOpenNotes[currentString - 1],
                               foundFrets: foundFrets,
                             ),
                           ),
                         );
-                      }
+                      },
                     ),
                   ),
                   Expanded(
-                    flex: 2, 
+                    flex: 2,
                     child: Padding(
-                      padding: const EdgeInsets.only(right: 15, top: 5, bottom: 5), 
+                      padding:
+                          const EdgeInsets.only(right: 15, top: 5, bottom: 5),
                       child: Column(
                         children: List.generate(12, (i) {
                           bool isTarget = notesIt[i] == currentNoteIt;
                           return Expanded(
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 2), 
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 2),
                               child: Opacity(
-                                opacity: (widget.mode == "TROVA" && !isTarget) ? 0.3 : 1.0,
+                                opacity: (widget.mode == "TROVA" && !isTarget)
+                                    ? 0.3
+                                    : 1.0,
                                 child: SizedBox(
-                                  width: double.infinity, 
+                                  width: double.infinity,
                                   child: ElevatedButton(
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF222222),
-                                      side: (widget.mode == "TROVA" && isTarget) 
-                                          ? const BorderSide(color: Colors.orangeAccent, width: 2) 
+                                      backgroundColor:
+                                          const Color(0xFF222222),
+                                      side: (widget.mode == "TROVA" &&
+                                              isTarget)
+                                          ? const BorderSide(
+                                              color: Colors.orangeAccent,
+                                              width: 2,
+                                            )
                                           : BorderSide.none,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(8),
+                                      ),
                                       padding: EdgeInsets.zero,
                                     ),
-                                    onPressed: widget.mode == "INDOVINA" ? () => checkAnswer(notesIt[i]) : null, 
+                                    onPressed: widget.mode == "INDOVINA"
+                                        ? () => checkAnswer(notesIt[i])
+                                        : null,
                                     child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center, 
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
-                                        Text(notesIt[i], style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
-                                        Text(notesEn[i], style: const TextStyle(fontSize: 9, color: Colors.white38)),
+                                        Text(
+                                          notesIt[i],
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        Text(
+                                          notesEn[i],
+                                          style: const TextStyle(
+                                            fontSize: 9,
+                                            color: Colors.white38,
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -420,16 +490,16 @@ class _GamePageState extends State<GamePage> {
 
   Widget _buildFooterWithScore() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10), 
+      padding: const EdgeInsets.symmetric(vertical: 10),
       width: double.infinity,
-      color: Colors.black, 
+      color: Colors.black,
       child: SafeArea(
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly, 
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _statWithLabel("PUNTI", correct, Colors.green), 
-            _statWithLabel("TOTALE", total, Colors.white, isBig: true), 
-            _statWithLabel("ERRORI", wrong, Colors.red)
+            _statWithLabel("PUNTI", correct, Colors.green),
+            _statWithLabel("TOTALE", total, Colors.white, isBig: true),
+            _statWithLabel("ERRORI", wrong, Colors.red),
           ],
         ),
       ),
@@ -440,8 +510,21 @@ class _GamePageState extends State<GamePage> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: TextStyle(color: col.withValues(alpha: 0.5), fontSize: 10)),
-        Text("$val", style: TextStyle(color: col, fontSize: isBig ? 28 : 22, fontWeight: FontWeight.bold)),
+        Text(
+          label,
+          style: TextStyle(
+            color: col.withOpacity(0.5),
+            fontSize: 10,
+          ),
+        ),
+        Text(
+          "$val",
+          style: TextStyle(
+            color: col,
+            fontSize: isBig ? 28 : 22,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ],
     );
   }
