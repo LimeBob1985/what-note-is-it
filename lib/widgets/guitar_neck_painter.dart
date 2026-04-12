@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 class GuitarNeckPainter extends CustomPainter {
   final int frets;
-  final int currentString; // 1 = VI (Sinistra), 6 = I (Destra)
+  final int currentString; // 1 = Mi Basso, 6 = Mi Cantino
   final int currentFret;
-  final bool showAllNotes; // Se true, evidenzia le posizioni per l'aiuto
+  final bool showAllNotes;
   final int targetNoteIndex;
   final int openNoteIndex;
-  final List<int> foundFrets; // Tasti già indovinati in modalità TROVA
+  final List<int> foundFrets;
 
   GuitarNeckPainter({
     required this.frets,
@@ -23,123 +23,108 @@ class GuitarNeckPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final double width = size.width;
     final double height = size.height;
+    
     const Color neckWood = Color(0xFFF3E5AB);
     const Color fretboardWood = Color(0xFF1A1A1A);
     const Color nutColor = Colors.white;
     const Color fretMetal = Color(0xFFC0C0C0);
     const Color stringMetal = Color(0xFFBDBDBD);
+    
     final Paint paint = Paint()..isAntiAlias = true;
-
     final double padX = width * 0.22;
     final double usableW = width - (padX * 2);
     final double nutY = height * 0.05;
     final double stringGap = usableW / 5;
 
-    final double spacingFactor = frets > 12 ? 0.96 : 0.9438;
-
-    // --- DISEGNO LEGNO MANICO E TASTIERA ---
+    // --- DISEGNO LEGNO ---
     paint.color = neckWood;
     canvas.drawRRect(
         RRect.fromLTRBR(padX - 4, 0, width - padX + 4, height, const Radius.circular(8)),
         paint);
+        
     paint.color = fretboardWood;
     canvas.drawRect(Rect.fromLTWH(padX, nutY, usableW, height - nutY), paint);
 
-    // --- CAPOTASTO ---
+    // --- CAPOTASTO (NUT) ---
     paint.color = nutColor;
     paint.strokeWidth = 6;
     canvas.drawLine(Offset(padX, nutY), Offset(width - padX, nutY), paint);
 
-    // --- LOGICA TASTI SCALATI ---
+    // --- LOGICA TASTI (FISICA REALE) ---
     List<double> fretPositions = [nutY];
     double currentPos = nutY;
+    final double spacingFactor = frets > 12 ? 0.96 : 0.9438;
     double totalRelativeScale = 0;
     double tempLength = 1.0;
-
     for (int i = 0; i < frets; i++) {
       totalRelativeScale += tempLength;
       tempLength *= spacingFactor;
     }
-
     double unit = (height - nutY - (height * 0.03)) / totalRelativeScale;
     double currentFretStep = unit;
 
     for (int i = 1; i <= frets; i++) {
+      double previousPos = currentPos;
       currentPos += currentFretStep;
       fretPositions.add(currentPos);
+
+      // --- INLAYS (PALLINI) ---
+      if ([3, 5, 7, 9, 12].contains(i)) {
+        final double centerY = previousPos + (currentFretStep / 2);
+        final Paint inlayPaint = Paint()..color = Colors.white.withAlpha(50);
+        
+        if (i == 12) {
+          // Centrati tra 2ª-3ª corda e 4ª-5ª corda
+          // Indici corde (0-based): 1.5 e 3.5
+          canvas.drawCircle(Offset(padX + (1.5 * stringGap), centerY), 5, inlayPaint);
+          canvas.drawCircle(Offset(padX + (3.5 * stringGap), centerY), 5, inlayPaint);
+        } else {
+          canvas.drawCircle(Offset(width / 2, centerY), 5, inlayPaint);
+        }
+      }
 
       paint.color = fretMetal;
       paint.strokeWidth = 2.5;
       canvas.drawLine(Offset(padX, currentPos), Offset(width - padX, currentPos), paint);
-
-      // --- INLAYS (Punti di riferimento) ---
-      double centerY = currentPos - (currentFretStep / 2);
-      if ([3, 5, 7, 9, 15, 17, 19, 21].contains(i)) {
-        canvas.drawCircle(Offset(width / 2, centerY), 5, Paint()..color = Colors.white24);
-      } else if (i == 12) {
-        canvas.drawCircle(Offset(padX + (1.5 * stringGap), centerY), 5, Paint()..color = Colors.white24);
-        canvas.drawCircle(Offset(padX + (3.5 * stringGap), centerY), 5, Paint()..color = Colors.white24);
-      }
       currentFretStep *= spacingFactor;
     }
 
-    // --- DISEGNO CORDE ---
+    // --- CORDE (SPESSORE VARIABILE) ---
     for (int i = 0; i < 6; i++) {
       double x = padX + (i * stringGap);
       paint.color = stringMetal;
-      paint.strokeWidth = 3.5 - (i * 0.5);
+      paint.strokeWidth = 3.8 - (i * 0.5); 
       canvas.drawLine(Offset(x, 0), Offset(x, height), paint);
     }
 
-    // --- FUNZIONE PER IL DISEGNO DEI PALLINI (NOTE) ---
+    _drawGameNotes(canvas, padX, stringGap, nutY, fretPositions);
+  }
+
+  void _drawGameNotes(Canvas canvas, double padX, double stringGap, double nutY, List<double> fretPositions) {
+    if (currentString < 1 || currentString > 6) return;
     void drawNoteDot(double x, double y, Color color) {
-      canvas.drawCircle(Offset(x, y), 14, Paint()..color = color.withOpacity(0.3));
+      canvas.drawCircle(Offset(x, y), 14, Paint()..color = color.withAlpha(75));
       canvas.drawCircle(Offset(x, y), 10, Paint()..color = color);
-      canvas.drawCircle(
-          Offset(x, y),
-          10,
-          Paint()
-            ..color = Colors.white
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2);
+      canvas.drawCircle(Offset(x, y), 10, Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 2);
     }
-
     double dotX = padX + ((currentString - 1) * stringGap);
-
-    // 1. DISEGNO I TASTI GIÀ INDOVINATI (PALLINI VERDI)
     for (int f in foundFrets) {
-      double dotY = (f == 0)
-          ? nutY / 2
-          : fretPositions[f - 1] + (fretPositions[f] - fretPositions[f - 1]) / 2;
+      double dotY = (f == 0) ? nutY / 2 : fretPositions[f - 1] + (fretPositions[f] - fretPositions[f - 1]) / 2;
       drawNoteDot(dotX, dotY, Colors.greenAccent);
     }
-
-    // 2. LOGICA HINT (AIUTO LAMPADINA)
     if (showAllNotes && openNoteIndex != -1 && targetNoteIndex != -1) {
       for (int f = 0; f <= frets; f++) {
         if ((openNoteIndex + f) % 12 == targetNoteIndex) {
-          double dotY = (f == 0)
-              ? nutY / 2
-              : fretPositions[f - 1] + (fretPositions[f] - fretPositions[f - 1]) / 2;
+          double dotY = (f == 0) ? nutY / 2 : fretPositions[f - 1] + (fretPositions[f] - fretPositions[f - 1]) / 2;
           drawNoteDot(dotX, dotY, Colors.yellowAccent);
         }
       }
-    } 
-    // 3. LOGICA NOTA SINGOLA (MODALITÀ INDOVINA)
-    else if (currentFret >= 0) {
-      double dotY = (currentFret == 0)
-          ? nutY / 2
-          : fretPositions[currentFret - 1] + (fretPositions[currentFret] - fretPositions[currentFret - 1]) / 2;
+    } else if (currentFret >= 0) {
+      double dotY = (currentFret == 0) ? nutY / 2 : fretPositions[currentFret - 1] + (fretPositions[currentFret] - fretPositions[currentFret - 1]) / 2;
       drawNoteDot(dotX, dotY, Colors.redAccent);
     }
   }
 
   @override
-  bool shouldRepaint(covariant GuitarNeckPainter oldDelegate) {
-    return oldDelegate.currentFret != currentFret ||
-        oldDelegate.currentString != currentString ||
-        oldDelegate.showAllNotes != showAllNotes ||
-        oldDelegate.foundFrets.length != foundFrets.length ||
-        oldDelegate.frets != frets;
-  }
+  bool shouldRepaint(covariant GuitarNeckPainter oldDelegate) => true;
 }
