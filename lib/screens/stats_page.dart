@@ -84,7 +84,8 @@ class _StatsPageState extends State<StatsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSectionTitle("PRECISIONE GIORNALIERA (Corrette vs Errate)"),
+                  // MODIFICATO: Rimossa dicitura (Corrette vs Errate)
+                  _buildSectionTitle("PRECISIONE GIORNALIERA"),
                   const SizedBox(height: 10),
                   SizedBox(
                     height: 250,
@@ -100,7 +101,8 @@ class _StatsPageState extends State<StatsPage> {
                   ),
                   
                   const SizedBox(height: 40),
-                  _buildSectionTitle("ANDAMENTO ACCURACY %"),
+                  // MODIFICATO: Rimossa percentuale %
+                  _buildSectionTitle("ANDAMENTO ACCURACY"),
                   const SizedBox(height: 10),
                   
                   SingleChildScrollView(

@@ -31,17 +31,21 @@ class GuitarNeckPainter extends CustomPainter {
     const Color stringMetal = Color(0xFFBDBDBD);
     
     final Paint paint = Paint()..isAntiAlias = true;
+    
+    // MODIFICA: padX ora definisce la larghezza fissa del manico dritto
     final double padX = width * 0.22;
     final double usableW = width - (padX * 2);
     final double nutY = height * 0.05;
     final double stringGap = usableW / 5;
 
-    // --- DISEGNO LEGNO ---
+    // --- DISEGNO LEGNO (RETTANGOLARE DRITTO) ---
     paint.color = neckWood;
-    canvas.drawRRect(
-        RRect.fromLTRBR(padX - 4, 0, width - padX + 4, height, const Radius.circular(8)),
+    // Disegniamo il rettangolo di fondo largo quanto la tastiera
+    canvas.drawRect(
+        Rect.fromLTRB(padX, 0, width - padX, height),
         paint);
         
+    // --- TASTIERA (RETTANGOLARE DRITTA) ---
     paint.color = fretboardWood;
     canvas.drawRect(Rect.fromLTWH(padX, nutY, usableW, height - nutY), paint);
 
@@ -74,8 +78,6 @@ class GuitarNeckPainter extends CustomPainter {
         final Paint inlayPaint = Paint()..color = Colors.white.withAlpha(50);
         
         if (i == 12) {
-          // Centrati tra 2ª-3ª corda e 4ª-5ª corda
-          // Indici corde (0-based): 1.5 e 3.5
           canvas.drawCircle(Offset(padX + (1.5 * stringGap), centerY), 5, inlayPaint);
           canvas.drawCircle(Offset(padX + (3.5 * stringGap), centerY), 5, inlayPaint);
         } else {
