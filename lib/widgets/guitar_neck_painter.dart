@@ -1,3 +1,4 @@
+// lib/widgets/guitar_neck_painter.dart
 import 'package:flutter/material.dart';
 
 class GuitarNeckPainter extends CustomPainter {
@@ -32,20 +33,16 @@ class GuitarNeckPainter extends CustomPainter {
     
     final Paint paint = Paint()..isAntiAlias = true;
     
-    // MODIFICA: padX ora definisce la larghezza fissa del manico dritto
     final double padX = width * 0.22;
     final double usableW = width - (padX * 2);
     final double nutY = height * 0.05;
     final double stringGap = usableW / 5;
 
-    // --- DISEGNO LEGNO (RETTANGOLARE DRITTO) ---
+    // --- DISEGNO LEGNO ---
     paint.color = neckWood;
-    // Disegniamo il rettangolo di fondo largo quanto la tastiera
-    canvas.drawRect(
-        Rect.fromLTRB(padX, 0, width - padX, height),
-        paint);
+    canvas.drawRect(Rect.fromLTRB(padX, 0, width - padX, height), paint);
         
-    // --- TASTIERA (RETTANGOLARE DRITTA) ---
+    // --- TASTIERA ---
     paint.color = fretboardWood;
     canvas.drawRect(Rect.fromLTWH(padX, nutY, usableW, height - nutY), paint);
 
@@ -54,7 +51,7 @@ class GuitarNeckPainter extends CustomPainter {
     paint.strokeWidth = 6;
     canvas.drawLine(Offset(padX, nutY), Offset(width - padX, nutY), paint);
 
-    // --- LOGICA TASTI (FISICA REALE) ---
+    // --- LOGICA TASTI ---
     List<double> fretPositions = [nutY];
     double currentPos = nutY;
     final double spacingFactor = frets > 12 ? 0.96 : 0.9438;
@@ -72,15 +69,18 @@ class GuitarNeckPainter extends CustomPainter {
       currentPos += currentFretStep;
       fretPositions.add(currentPos);
 
-      // --- INLAYS (PALLINI) ---
-      if ([3, 5, 7, 9, 12].contains(i)) {
+      // --- INLAYS (PALLINI) AGGIORNATI ---
+      // Aggiunti 15, 17, 19, 21 e predisposto il 24 per il doppio pallino
+      if ([3, 5, 7, 9, 12, 15, 17, 19, 21, 24].contains(i)) {
         final double centerY = previousPos + (currentFretStep / 2);
         final Paint inlayPaint = Paint()..color = Colors.white.withAlpha(50);
         
-        if (i == 12) {
+        // I tasti 12 e 24 hanno il doppio pallino laterale
+        if (i == 12 || i == 24) {
           canvas.drawCircle(Offset(padX + (1.5 * stringGap), centerY), 5, inlayPaint);
           canvas.drawCircle(Offset(padX + (3.5 * stringGap), centerY), 5, inlayPaint);
         } else {
+          // Tutti gli altri hanno il pallino singolo centrale
           canvas.drawCircle(Offset(width / 2, centerY), 5, inlayPaint);
         }
       }
@@ -91,7 +91,7 @@ class GuitarNeckPainter extends CustomPainter {
       currentFretStep *= spacingFactor;
     }
 
-    // --- CORDE (SPESSORE VARIABILE) ---
+    // --- CORDE ---
     for (int i = 0; i < 6; i++) {
       double x = padX + (i * stringGap);
       paint.color = stringMetal;

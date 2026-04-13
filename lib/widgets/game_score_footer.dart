@@ -15,18 +15,17 @@ class GameScoreFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      // Aumentiamo leggermente il padding inferiore per centrare meglio i testi con la barra iPhone
+      padding: const EdgeInsets.only(top: 10, bottom: 30), 
       width: double.infinity,
-      color: Colors.black,
-      child: SafeArea(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _statWithLabel("PUNTI", correct, Colors.green),
-            _statWithLabel("TOTALE", total, Colors.white, isBig: true),
-            _statWithLabel("ERRORI", wrong, Colors.red),
-          ],
-        ),
+      color: Colors.black, // Questo nero ora coprirà tutta la base
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _statWithLabel("ESATTE", correct, Colors.green),
+          _statWithLabel("TOTALE", total, Colors.white, isBig: true),
+          _statWithLabel("ERRATE", wrong, Colors.red),
+        ],
       ),
     );
   }
@@ -37,7 +36,7 @@ class GameScoreFooter extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(color: col.withOpacity(0.5), fontSize: 10),
+          style: TextStyle(color: col.withOpacity(0.5), fontSize: 10, fontWeight: FontWeight.bold),
         ),
         Text(
           "$val",
