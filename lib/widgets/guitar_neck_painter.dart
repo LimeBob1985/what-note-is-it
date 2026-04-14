@@ -1,9 +1,8 @@
-// lib/widgets/guitar_neck_painter.dart
 import 'package:flutter/material.dart';
 
 class GuitarNeckPainter extends CustomPainter {
   final int frets;
-  final int currentString; // 1 = Mi Basso, 6 = Mi Cantino
+  final int currentString; 
   final int currentFret;
   final bool showAllNotes;
   final int targetNoteIndex;
@@ -33,35 +32,65 @@ class GuitarNeckPainter extends CustomPainter {
     
     final Paint paint = Paint()..isAntiAlias = true;
     
-    final double padX = width * 0.22;
-    final double usableW = width - (padX * 2);
-    final double nutY = height * 0.05;
-    final double stringGap = usableW / 5;
+    // --- CALCOLO PROPORZIONI (PIÙ STRETTE E GRANDI) ---
+    // Stringiamo il manico per renderlo più realistico (42mm -> 55.5mm proporzionale)
+    final double nutWidth = width * 0.38; // Ridotto da 0.45 per stringere le corde
+    final double scaleFactor = 1.32; 
+    final double baseWidth = nutWidth * scaleFactor;
 
-    // --- DISEGNO LEGNO ---
+    final double nutXStart = (width - nutWidth) / 2;
+    final double baseXStart = (width - baseWidth) / 2;
+    
+    // Alziamo il capotasto per sfruttare più spazio (meno eccesso sopra)
+    final double nutY = height * 0.04; 
+
+    double getWidthAtY(double y) {
+      double relativePos = (y - nutY) / (height - nutY);
+      if (relativePos < 0) relativePos = 0;
+      return nutWidth + (baseWidth - nutWidth) * relativePos;
+    }
+
+    double getXStartAtY(double y) {
+      return (width - getWidthAtY(y)) / 2;
+    }
+
+    // --- LEGNO MANICO ---
     paint.color = neckWood;
-    canvas.drawRect(Rect.fromLTRB(padX, 0, width - padX, height), paint);
+    Path neckPath = Path();
+    neckPath.moveTo(getXStartAtY(0), 0);
+    neckPath.lineTo(getXStartAtY(0) + getWidthAtY(0), 0);
+    neckPath.lineTo(baseXStart + baseWidth, height);
+    neckPath.lineTo(baseXStart, height);
+    neckPath.close();
+    canvas.drawPath(neckPath, paint);
         
     // --- TASTIERA ---
     paint.color = fretboardWood;
-    canvas.drawRect(Rect.fromLTWH(padX, nutY, usableW, height - nutY), paint);
+    Path fretboardPath = Path();
+    fretboardPath.moveTo(nutXStart, nutY);
+    fretboardPath.lineTo(nutXStart + nutWidth, nutY);
+    fretboardPath.lineTo(baseXStart + baseWidth, height);
+    fretboardPath.lineTo(baseXStart, height);
+    fretboardPath.close();
+    canvas.drawPath(fretboardPath, paint);
 
-    // --- CAPOTASTO (NUT) ---
+    // --- CAPOTASTO ---
     paint.color = nutColor;
     paint.strokeWidth = 6;
-    canvas.drawLine(Offset(padX, nutY), Offset(width - padX, nutY), paint);
+    canvas.drawLine(Offset(nutXStart, nutY), Offset(nutXStart + nutWidth, nutY), paint);
 
     // --- LOGICA TASTI ---
     List<double> fretPositions = [nutY];
     double currentPos = nutY;
-    final double spacingFactor = frets > 12 ? 0.96 : 0.9438;
+    final double spacingFactor = frets > 12 ? 0.962 : 0.945; // Leggera ottimizzazione spaziatura
     double totalRelativeScale = 0;
     double tempLength = 1.0;
     for (int i = 0; i < frets; i++) {
       totalRelativeScale += tempLength;
       tempLength *= spacingFactor;
     }
-    double unit = (height - nutY - (height * 0.03)) / totalRelativeScale;
+    // Riduciamo l'eccesso in fondo (da 0.03 a 0.01) per ingrandire i tasti
+    double unit = (height - nutY - (height * 0.01)) / totalRelativeScale;
     double currentFretStep = unit;
 
     for (int i = 1; i <= frets; i++) {
@@ -69,61 +98,77 @@ class GuitarNeckPainter extends CustomPainter {
       currentPos += currentFretStep;
       fretPositions.add(currentPos);
 
-      // --- INLAYS (PALLINI) AGGIORNATI ---
-      // Aggiunti 15, 17, 19, 21 e predisposto il 24 per il doppio pallino
+      double currentW = getWidthAtY(currentPos);
+      double currentX = getXStartAtY(currentPos);
+
+      // --- INLAYS ---
       if ([3, 5, 7, 9, 12, 15, 17, 19, 21, 24].contains(i)) {
         final double centerY = previousPos + (currentFretStep / 2);
-        final Paint inlayPaint = Paint()..color = Colors.white.withAlpha(50);
+        final double centerW = getWidthAtY(centerY);
+        final double centerX = getXStartAtY(centerY);
+        final double gapAtY = centerW / 5;
+        final Paint inlayPaint = Paint()..color = Colors.white.withAlpha(40);
         
-        // I tasti 12 e 24 hanno il doppio pallino laterale
         if (i == 12 || i == 24) {
-          canvas.drawCircle(Offset(padX + (1.5 * stringGap), centerY), 5, inlayPaint);
-          canvas.drawCircle(Offset(padX + (3.5 * stringGap), centerY), 5, inlayPaint);
+          canvas.drawCircle(Offset(centerX + (1.5 * gapAtY), centerY), 4, inlayPaint);
+          canvas.drawCircle(Offset(centerX + (3.5 * gapAtY), centerY), 4, inlayPaint);
         } else {
-          // Tutti gli altri hanno il pallino singolo centrale
-          canvas.drawCircle(Offset(width / 2, centerY), 5, inlayPaint);
+          canvas.drawCircle(Offset(width / 2, centerY), 4, inlayPaint);
         }
       }
 
       paint.color = fretMetal;
-      paint.strokeWidth = 2.5;
-      canvas.drawLine(Offset(padX, currentPos), Offset(width - padX, currentPos), paint);
+      paint.strokeWidth = 2.2;
+      canvas.drawLine(Offset(currentX, currentPos), Offset(currentX + currentW, currentPos), paint);
       currentFretStep *= spacingFactor;
     }
 
     // --- CORDE ---
     for (int i = 0; i < 6; i++) {
-      double x = padX + (i * stringGap);
+      double xNut = nutXStart + (i * (nutWidth / 5));
+      double xBase = baseXStart + (i * (baseWidth / 5));
       paint.color = stringMetal;
-      paint.strokeWidth = 3.8 - (i * 0.5); 
-      canvas.drawLine(Offset(x, 0), Offset(x, height), paint);
+      paint.strokeWidth = 3.5 - (i * 0.5); 
+      canvas.drawLine(Offset(xNut, 0), Offset(xBase, height), paint);
     }
 
-    _drawGameNotes(canvas, padX, stringGap, nutY, fretPositions);
+    _drawGameNotes(canvas, nutXStart, nutWidth, baseXStart, baseWidth, nutY, fretPositions);
   }
 
-  void _drawGameNotes(Canvas canvas, double padX, double stringGap, double nutY, List<double> fretPositions) {
+  void _drawGameNotes(Canvas canvas, double nutX, double nutW, double baseX, double baseW, double nutY, List<double> fretPositions) {
     if (currentString < 1 || currentString > 6) return;
+
     void drawNoteDot(double x, double y, Color color) {
-      canvas.drawCircle(Offset(x, y), 14, Paint()..color = color.withAlpha(75));
-      canvas.drawCircle(Offset(x, y), 10, Paint()..color = color);
-      canvas.drawCircle(Offset(x, y), 10, Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 2);
+      canvas.drawCircle(Offset(x, y), 13, Paint()..color = color.withAlpha(70));
+      canvas.drawCircle(Offset(x, y), 9, Paint()..color = color);
+      canvas.drawCircle(Offset(x, y), 9, Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 1.5);
     }
-    double dotX = padX + ((currentString - 1) * stringGap);
+
+    // Calcolo X preciso considerando l'inclinazione
+    double getXForStringAtY(int stringIdx, double y) {
+      double xNut = nutX + (stringIdx * (nutW / 5));
+      double xBase = baseX + (stringIdx * (baseW / 5));
+      // Interpolazione lineare su tutta l'altezza
+      return xNut + (xBase - xNut) * (y / fretPositions.last);
+    }
+
+    int sIdx = currentString - 1;
+
     for (int f in foundFrets) {
       double dotY = (f == 0) ? nutY / 2 : fretPositions[f - 1] + (fretPositions[f] - fretPositions[f - 1]) / 2;
-      drawNoteDot(dotX, dotY, Colors.greenAccent);
+      drawNoteDot(getXForStringAtY(sIdx, dotY), dotY, Colors.greenAccent);
     }
+
     if (showAllNotes && openNoteIndex != -1 && targetNoteIndex != -1) {
       for (int f = 0; f <= frets; f++) {
         if ((openNoteIndex + f) % 12 == targetNoteIndex) {
           double dotY = (f == 0) ? nutY / 2 : fretPositions[f - 1] + (fretPositions[f] - fretPositions[f - 1]) / 2;
-          drawNoteDot(dotX, dotY, Colors.yellowAccent);
+          drawNoteDot(getXForStringAtY(sIdx, dotY), dotY, Colors.yellowAccent);
         }
       }
     } else if (currentFret >= 0) {
       double dotY = (currentFret == 0) ? nutY / 2 : fretPositions[currentFret - 1] + (fretPositions[currentFret] - fretPositions[currentFret - 1]) / 2;
-      drawNoteDot(dotX, dotY, Colors.redAccent);
+      drawNoteDot(getXForStringAtY(sIdx, dotY), dotY, Colors.redAccent);
     }
   }
 

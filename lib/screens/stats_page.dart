@@ -67,7 +67,8 @@ class _StatsPageState extends State<StatsPage> {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F0F),
       appBar: AppBar(
-        title: const Text("STATS STORICI", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        // MODIFICATO: Ora visualizza solo "STATS"
+        title: const Text("STATS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -84,7 +85,6 @@ class _StatsPageState extends State<StatsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // MODIFICATO: Rimossa dicitura (Corrette vs Errate)
                   _buildSectionTitle("PRECISIONE GIORNALIERA"),
                   const SizedBox(height: 10),
                   SizedBox(
@@ -101,7 +101,6 @@ class _StatsPageState extends State<StatsPage> {
                   ),
                   
                   const SizedBox(height: 40),
-                  // MODIFICATO: Rimossa percentuale %
                   _buildSectionTitle("ANDAMENTO ACCURACY"),
                   const SizedBox(height: 10),
                   

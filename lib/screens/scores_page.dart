@@ -3,14 +3,46 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../widgets/score_card.dart';
 
-class ScoresPage extends StatelessWidget {
+class ScoresPage extends StatefulWidget {
   const ScoresPage({super.key});
 
-  Future<List<Map<String, dynamic>>> _getGameHistory(SharedPreferences prefs) async {
+  @override
+  State<ScoresPage> createState() => _ScoresPageState();
+}
+
+class _ScoresPageState extends State<ScoresPage> {
+  List<Map<String, dynamic>> _history = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    final prefs = await SharedPreferences.getInstance();
     String? historyJson = prefs.getString("game_history");
-    if (historyJson == null) return [];
-    List<dynamic> decoded = jsonDecode(historyJson);
-    return decoded.map((e) => Map<String, dynamic>.from(e)).toList().reversed.toList();
+    if (historyJson != null) {
+      List<dynamic> decoded = jsonDecode(historyJson);
+      setState(() {
+        _history = decoded.map((e) => Map<String, dynamic>.from(e)).toList().reversed.toList();
+        _isLoading = false;
+      });
+    } else {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _deleteScore(int index) async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    setState(() {
+      _history.removeAt(index);
+    });
+
+    List<Map<String, dynamic>> originalOrder = _history.reversed.toList();
+    await prefs.setString("game_history", jsonEncode(originalOrder));
   }
 
   bool _isNewDay(String prev, String next) {
@@ -22,7 +54,7 @@ class ScoresPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F0F),
       appBar: AppBar(
-        title: const Text("SCORE STORICI", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("SCORE", style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.orangeAccent,
@@ -35,7 +67,7 @@ class ScoresPage extends StatelessWidget {
         child: FutureBuilder<SharedPreferences>(
           future: SharedPreferences.getInstance(),
           builder: (context, snapshot) {
-            if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+            if (!snapshot.hasData || _isLoading) return const Center(child: CircularProgressIndicator());
             
             final prefs = snapshot.data!;
             int bestScore = prefs.getInt("best_INDOVINA_12_0") ?? 0;
@@ -66,36 +98,44 @@ class ScoresPage extends StatelessWidget {
                   ),
                 ),
                 Expanded(
-                  child: FutureBuilder<List<Map<String, dynamic>>>(
-                    future: _getGameHistory(prefs),
-                    builder: (context, historySnapshot) {
-                      final history = historySnapshot.data ?? [];
-                      return ListView.builder(
-                        padding: const EdgeInsets.all(20),
-                        itemCount: history.length,
-                        itemBuilder: (context, index) {
-                          final game = history[index];
-                          bool showSeparator = false;
-                          if (index > 0) {
-                            showSeparator = _isNewDay(history[index - 1]['date'] ?? "", game['date'] ?? "");
-                          }
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(20),
+                    itemCount: _history.length,
+                    itemBuilder: (context, index) {
+                      final game = _history[index];
+                      bool showSeparator = false;
+                      if (index > 0) {
+                        showSeparator = _isNewDay(_history[index - 1]['date'] ?? "", game['date'] ?? "");
+                      }
 
-                          return Column(
-                            children: [
-                              if (showSeparator) _buildDateSeparator(game['date'] ?? ""),
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: ScoreCard(
-                                  title: game['date'] ?? "Data sconosciuta",
-                                  score: game['score'] ?? 0,
-                                  correct: game['correct'] ?? 0,
-                                  wrong: game['wrong'] ?? 0,
-                                  mode: (game['mode'] ?? "N.D.").toString().toUpperCase(),
+                      return Column(
+                        children: [
+                          if (showSeparator) _buildDateSeparator(game['date'] ?? ""),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Dismissible(
+                              key: Key(game['date'] ?? index.toString()),
+                              direction: DismissDirection.endToStart,
+                              background: Container(
+                                alignment: Alignment.centerRight,
+                                padding: const EdgeInsets.only(right: 20), // Corretto qui
+                                decoration: BoxDecoration(
+                                  color: Colors.redAccent.withValues(alpha: 0.2), // Corretto qui
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
+                                child: const Icon(Icons.delete_sweep_rounded, color: Colors.redAccent),
                               ),
-                            ],
-                          );
-                        },
+                              onDismissed: (direction) => _deleteScore(index),
+                              child: ScoreCard(
+                                title: game['date'] ?? "Data sconosciuta",
+                                score: game['score'] ?? 0,
+                                correct: game['correct'] ?? 0,
+                                wrong: game['wrong'] ?? 0,
+                                mode: (game['mode'] ?? "N.D.").toString().toUpperCase(),
+                              ),
+                            ),
+                          ),
+                        ],
                       );
                     },
                   ),
