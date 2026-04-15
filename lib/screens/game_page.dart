@@ -29,7 +29,7 @@ class GamePage extends StatefulWidget {
   State<GamePage> createState() => _GamePageState();
 }
 
-class _GamePageState extends State<GamePage> {
+class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin {
   int correct = 0, wrong = 0, total = 0, timeLeft = 0, highScore = 0;
   Timer? _timer;
   late int currentString, currentFret;
@@ -39,12 +39,35 @@ class _GamePageState extends State<GamePage> {
   List<int> foundFrets = [];
   List<int> targetFrets = [];
 
+  late AnimationController _animationController;
+  int _fretFoundIdx = -1; 
+  int _stringFoundIdx = -1; 
+  bool _isAnimatingFound = false;
+
   @override
   void initState() {
     super.initState();
     loadHighScore();
     generateNewChallenge();
     if (widget.timer != null) startTimer();
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    )..addListener(() => setState(() {}));
+
+    _animationController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        if (mounted) {
+          setState(() {
+            _isAnimatingFound = false;
+            _fretFoundIdx = -1;
+            _stringFoundIdx = -1;
+            _animationController.reset();
+          });
+        }
+      }
+    });
   }
 
   void _triggerVibration(bool isCorrect) {
@@ -66,8 +89,6 @@ class _GamePageState extends State<GamePage> {
       final prefs = await SharedPreferences.getInstance();
       String key = "best_${widget.mode}_${widget.frets}_${widget.timer ?? 0}";
       await prefs.setInt(key, correct);
-      await prefs.setInt("${key}_correct", correct);
-      await prefs.setInt("${key}_wrong", wrong);
       setState(() => highScore = correct);
     }
   }
@@ -75,23 +96,11 @@ class _GamePageState extends State<GamePage> {
   Future<void> _saveStats(bool isCorrect) async {
     final prefs = await SharedPreferences.getInstance();
     final String today = DateTime.now().toString().split(' ')[0];
-
-    await prefs.setInt("last_score", correct);
-    await prefs.setInt("last_total", total);
-    await prefs.setInt("last_correct", correct);
-    await prefs.setInt("last_wrong", wrong);
-
     int savedCorrectToday = prefs.getInt("stats_correct_$today") ?? 0;
     int savedTotalToday = prefs.getInt("stats_total_$today") ?? 0;
 
-    int currentTotalToday = savedTotalToday + 1;
-    int currentCorrectToday = isCorrect ? (savedCorrectToday + 1) : savedCorrectToday;
-
-    double dailyAccuracy = currentTotalToday > 0 ? currentCorrectToday / currentTotalToday : 0.0;
-
-    await prefs.setDouble("stats_accuracy_$today", dailyAccuracy);
-    await prefs.setInt("stats_correct_$today", currentCorrectToday);
-    await prefs.setInt("stats_total_$today", currentTotalToday);
+    await prefs.setInt("stats_correct_$today", isCorrect ? savedCorrectToday + 1 : savedCorrectToday);
+    await prefs.setInt("stats_total_$today", savedTotalToday + 1);
   }
 
   Future<void> _finalizeSession() async {
@@ -131,9 +140,17 @@ class _GamePageState extends State<GamePage> {
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF222222),
-        title: const Text("GAME OVER", textAlign: TextAlign.center, style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-        content: Text("Hai commesso 3 errori.\nPunteggio finale: $correct", textAlign: TextAlign.center, style: const TextStyle(color: Colors.white)),
-        actionsAlignment: MainAxisAlignment.center,
+        title: const Text(
+          "GAME OVER", 
+          textAlign: TextAlign.center, 
+          style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)
+        ),
+        content: Text(
+          "Hai commesso 3 errori.\nPunteggio finale: $correct", 
+          textAlign: TextAlign.center, 
+          style: const TextStyle(color: Colors.white)
+        ),
+        actionsAlignment: MainAxisAlignment.center, // Centra il tasto nelle azioni
         actions: [
           TextButton(
             onPressed: () {
@@ -174,7 +191,6 @@ class _GamePageState extends State<GamePage> {
       }
       
       currentFret = Random().nextInt(widget.frets + 1);
-
       int noteIndex = MusicLogic.getNoteIndex(currentString, currentFret);
       currentNoteIt = MusicLogic.notesIt[noteIndex];
 
@@ -233,14 +249,14 @@ class _GamePageState extends State<GamePage> {
   int _getFretFromY(double relativeY, double nutYRatio) {
     if (relativeY < nutYRatio) return 0;
     double currentPos = nutYRatio;
-    double spacingFactor = widget.frets > 12 ? 0.96 : 0.9438;
+    double spacingFactor = widget.frets > 12 ? 0.962 : 0.945;
     double tempLength = 1.0;
     double totalRelativeScale = 0;
     for (int i = 0; i < widget.frets; i++) {
       totalRelativeScale += tempLength;
       tempLength *= spacingFactor;
     }
-    double unit = (1.0 - nutYRatio - 0.03) / totalRelativeScale;
+    double unit = (1.0 - nutYRatio - 0.01) / totalRelativeScale;
     double currentFretStep = unit;
     for (int i = 1; i <= widget.frets; i++) {
       double nextPos = currentPos + currentFretStep;
@@ -254,18 +270,17 @@ class _GamePageState extends State<GamePage> {
   @override
   void dispose() {
     _timer?.cancel();
+    _animationController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    String headerIndovina = "CHE NOTA È?";
     String headerTrova = "${MusicLogic.romanNumerals[currentString - 1]} CORDA";
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F0F),
+      backgroundColor: const Color(0xFF121212),
       body: SafeArea(
-        // FIX: 'bottom: false' permette al colore del footer di estendersi fino alla base
         bottom: false, 
         child: Column(
           children: [
@@ -283,14 +298,12 @@ class _GamePageState extends State<GamePage> {
                   const Spacer(),
                   Text(
                     widget.mode == "INDOVINA" 
-                      ? (showHint ? "NOTA: $currentNoteIt" : headerIndovina)
+                      ? (showHint ? "NOTA: $currentNoteIt" : "CHE NOTA È?")
                       : headerTrova,
                     style: TextStyle(
-                      color: (widget.mode == "INDOVINA" && showHint) 
-                          ? Colors.yellow 
-                          : (widget.mode == "TROVA" ? Colors.orangeAccent : Colors.white),
+                      color: showHint ? Colors.yellow : Colors.white,
                       fontWeight: FontWeight.bold,
-                      fontSize: (widget.mode == "TROVA") ? 18 : 14,
+                      fontSize: 18,
                     ),
                   ),
                   const Spacer(),
@@ -315,6 +328,7 @@ class _GamePageState extends State<GamePage> {
                 ],
               ),
             ),
+            
             Expanded(
               child: Row(
                 children: [
@@ -325,10 +339,48 @@ class _GamePageState extends State<GamePage> {
                         return GestureDetector(
                           onTapDown: (details) {
                             if (widget.mode == "TROVA") {
-                              HapticFeedback.selectionClick(); 
-                              double relY = details.localPosition.dy / constraints.maxHeight;
-                              int clickedFret = _getFretFromY(relY, 0.05);
-                              checkAnswer(clickedFret);
+                              final double x = details.localPosition.dx;
+                              final double y = details.localPosition.dy;
+                              final double w = constraints.maxWidth;
+                              final double h = constraints.maxHeight;
+
+                              int clickedFret = _getFretFromY(y / h, 0.04);
+                              double relY = y / h;
+                              double nutWidth = w * 0.45;
+                              double baseWidth = nutWidth * 1.07;
+                              double currentNeckWidth = nutWidth + (baseWidth - nutWidth) * relY;
+                              double currentXStart = (w - currentNeckWidth) / 2;
+                              
+                              int clickedString = 1;
+                              double minDistance = double.infinity;
+                              
+                              for (int i = 0; i < 6; i++) {
+                                double sX = currentXStart + (i * (currentNeckWidth / 5));
+                                double dist = (x - sX).abs();
+                                if (dist < minDistance) {
+                                  minDistance = dist;
+                                  clickedString = i + 1;
+                                }
+                              }
+
+                              setState(() {
+                                _fretFoundIdx = clickedFret;
+                                _stringFoundIdx = clickedString;
+                                _isAnimatingFound = true;
+                                _animationController.forward(from: 0.0);
+                              });
+
+                              if (clickedString == currentString) {
+                                checkAnswer(clickedFret);
+                              } else {
+                                _triggerVibration(false);
+                                setState(() {
+                                  wrong++;
+                                  total++;
+                                  _saveStats(false);
+                                  if (wrong >= 3) handleGameOver();
+                                });
+                              }
                             }
                           },
                           child: CustomPaint(
@@ -341,54 +393,71 @@ class _GamePageState extends State<GamePage> {
                               targetNoteIndex: MusicLogic.notesIt.indexOf(currentNoteIt),
                               openNoteIndex: MusicLogic.stringOpenNotes[currentString - 1],
                               foundFrets: foundFrets,
+                              isAnimatingFound: _isAnimatingFound,
+                              fretFoundIdx: _fretFoundIdx,
+                              stringFoundIdx: _stringFoundIdx,
+                              animationValue: _animationController.value,
                             ),
                           ),
                         );
                       },
                     ),
                   ),
+                  
                   Expanded(
                     flex: 2,
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 15, top: 5, bottom: 5),
-                      child: Column(
-                        children: List.generate(12, (i) {
-                          bool isTarget = MusicLogic.notesIt[i] == currentNoteIt;
-                          return Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 2),
-                              child: Opacity(
-                                opacity: (widget.mode == "TROVA" && !isTarget) ? 0.3 : 1.0,
-                                child: SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF222222),
-                                      side: (widget.mode == "TROVA" && isTarget) ? const BorderSide(color: Colors.orangeAccent, width: 2) : BorderSide.none,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                      padding: EdgeInsets.zero,
-                                    ),
-                                    onPressed: widget.mode == "INDOVINA" ? () => checkAnswer(MusicLogic.notesIt[i]) : null,
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(MusicLogic.notesIt[i], style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
-                                        Text(MusicLogic.notesEn[i], style: const TextStyle(fontSize: 9, color: Colors.white38)),
-                                      ],
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF1A1A1A),
+                        border: Border(left: BorderSide(color: Colors.black54, width: 1)),
+                      ),
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: List.generate(12, (i) {
+                              bool isTarget = MusicLogic.notesIt[i] == currentNoteIt;
+                              return Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 3),
+                                  child: Opacity(
+                                    opacity: (widget.mode == "TROVA" && !isTarget) ? 0.3 : 1.0,
+                                    child: SizedBox(
+                                      width: 140,
+                                      child: ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFF2A2A2A),
+                                          elevation: 4,
+                                          side: (widget.mode == "TROVA" && isTarget) 
+                                              ? const BorderSide(color: Colors.orangeAccent, width: 2) 
+                                              : BorderSide.none,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                          padding: EdgeInsets.zero,
+                                        ),
+                                        onPressed: widget.mode == "INDOVINA" ? () => checkAnswer(MusicLogic.notesIt[i]) : null,
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Text(MusicLogic.notesIt[i], style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
+                                            Text(MusicLogic.notesEn[i], style: const TextStyle(fontSize: 10, color: Colors.white38)),
+                                          ],
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ),
-                          );
-                        }),
+                              );
+                            }),
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-            // Modificato per passare le etichette corrette (assicurati che il widget le supporti o modificale nel widget footer)
+            
             GameScoreFooter(
               correct: correct, 
               total: total, 

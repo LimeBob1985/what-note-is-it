@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui' as ui;
 
 class GuitarNeckPainter extends CustomPainter {
   final int frets;
@@ -9,6 +10,12 @@ class GuitarNeckPainter extends CustomPainter {
   final int openNoteIndex;
   final List<int> foundFrets;
 
+  // Parametri per l'animazione chicca
+  final bool isAnimatingFound;
+  final int fretFoundIdx; 
+  final int stringFoundIdx; 
+  final double animationValue; 
+
   GuitarNeckPainter({
     required this.frets,
     required this.currentString,
@@ -17,6 +24,10 @@ class GuitarNeckPainter extends CustomPainter {
     this.targetNoteIndex = -1,
     this.openNoteIndex = -1,
     this.foundFrets = const [],
+    this.isAnimatingFound = false,
+    this.fretFoundIdx = -1,
+    this.stringFoundIdx = -1,
+    this.animationValue = 0.0,
   });
 
   @override
@@ -24,23 +35,19 @@ class GuitarNeckPainter extends CustomPainter {
     final double width = size.width;
     final double height = size.height;
     
-    const Color neckWood = Color(0xFFF3E5AB);
-    const Color fretboardWood = Color(0xFF1A1A1A);
-    const Color nutColor = Colors.white;
-    const Color fretMetal = Color(0xFFC0C0C0);
-    const Color stringMetal = Color(0xFFBDBDBD);
+    // Colori definiti
+    const Color neckBackground = Color(0xFF111111); // Grigio quasi nero richiesto
+    const Color fretboardWood = Color(0xFF1A110D); 
+    const Color nutColor = Color(0xFFE8E4D9); 
     
     final Paint paint = Paint()..isAntiAlias = true;
     
-    // --- CALCOLO PROPORZIONI (PIÙ DRITTO) ---
-    final double nutWidth = width * 0.38; 
-    // Ridotto scaleFactor da 1.32 a 1.18 per rendere il manico meno trapezoidale
-    final double scaleFactor = 1.18; 
+    final double nutWidth = width * 0.45; 
+    final double scaleFactor = 1.07; 
     final double baseWidth = nutWidth * scaleFactor;
 
     final double nutXStart = (width - nutWidth) / 2;
     final double baseXStart = (width - baseWidth) / 2;
-    
     final double nutY = height * 0.04; 
 
     double getWidthAtY(double y) {
@@ -53,32 +60,36 @@ class GuitarNeckPainter extends CustomPainter {
       return (width - getWidthAtY(y)) / 2;
     }
 
-    // --- LEGNO MANICO ---
-    paint.color = neckWood;
-    Path neckPath = Path();
-    neckPath.moveTo(getXStartAtY(0), 0);
-    neckPath.lineTo(getXStartAtY(0) + getWidthAtY(0), 0);
-    neckPath.lineTo(baseXStart + baseWidth, height);
-    neckPath.lineTo(baseXStart, height);
-    neckPath.close();
-    canvas.drawPath(neckPath, paint);
-        
-    // --- TASTIERA ---
+    // --- 1. SFONDO LATERALE (GRIGIO SCURISSIMO) ---
+    paint.color = neckBackground;
+    canvas.drawRect(Rect.fromLTWH(0, 0, width, height), paint);
+
+    // --- 2. TASTIERA ---
     paint.color = fretboardWood;
     Path fretboardPath = Path();
-    fretboardPath.moveTo(nutXStart, nutY);
-    fretboardPath.lineTo(nutXStart + nutWidth, nutY);
+    fretboardPath.moveTo(nutXStart, 0);
+    fretboardPath.lineTo(nutXStart + nutWidth, 0);
     fretboardPath.lineTo(baseXStart + baseWidth, height);
     fretboardPath.lineTo(baseXStart, height);
     fretboardPath.close();
     canvas.drawPath(fretboardPath, paint);
 
-    // --- CAPOTASTO ---
-    paint.color = nutColor;
-    paint.strokeWidth = 6;
-    canvas.drawLine(Offset(nutXStart, nutY), Offset(nutXStart + nutWidth, nutY), paint);
+    // Sfumatura bordi tastiera (3D effect)
+    paint.shader = ui.Gradient.linear(
+      Offset(nutXStart, 0),
+      Offset(nutXStart + nutWidth, 0),
+      [
+        Colors.black.withOpacity(0.5), 
+        Colors.transparent, 
+        Colors.transparent, 
+        Colors.black.withOpacity(0.5)
+      ],
+      [0.0, 0.05, 0.95, 1.0],
+    );
+    canvas.drawPath(fretboardPath, paint);
+    paint.shader = null;
 
-    // --- LOGICA TASTI ---
+    // --- 3. LOGICA TASTI E INLAYS ---
     List<double> fretPositions = [nutY];
     double currentPos = nutY;
     final double spacingFactor = frets > 12 ? 0.962 : 0.945; 
@@ -99,37 +110,109 @@ class GuitarNeckPainter extends CustomPainter {
       double currentW = getWidthAtY(currentPos);
       double currentX = getXStartAtY(currentPos);
 
-      // --- INLAYS ---
+      // --- INLAYS (Madreperla) ---
       if ([3, 5, 7, 9, 12, 15, 17, 19, 21, 24].contains(i)) {
         final double centerY = previousPos + (currentFretStep / 2);
         final double centerW = getWidthAtY(centerY);
         final double centerX = getXStartAtY(centerY);
         final double gapAtY = centerW / 5;
-        final Paint inlayPaint = Paint()..color = Colors.white.withAlpha(40);
+
+        void drawInlay(Offset center) {
+          final Paint inlayPaint = Paint()
+            ..shader = ui.Gradient.radial(
+              center,
+              8,
+              [Colors.white.withOpacity(0.6), Colors.white.withOpacity(0.1)],
+              [0.1, 1.0],
+            );
+          canvas.drawCircle(center, 5, inlayPaint);
+        }
         
         if (i == 12 || i == 24) {
-          canvas.drawCircle(Offset(centerX + (1.5 * gapAtY), centerY), 4, inlayPaint);
-          canvas.drawCircle(Offset(centerX + (3.5 * gapAtY), centerY), 4, inlayPaint);
+          drawInlay(Offset(centerX + (1.5 * gapAtY), centerY));
+          drawInlay(Offset(centerX + (3.5 * gapAtY), centerY));
         } else {
-          canvas.drawCircle(Offset(width / 2, centerY), 4, inlayPaint);
+          drawInlay(Offset(width / 2, centerY));
         }
       }
 
-      paint.color = fretMetal;
-      paint.strokeWidth = 2.2;
+      // --- TASTI (Linee Metalliche) ---
+      paint.color = Colors.black.withOpacity(0.6);
+      paint.strokeWidth = 1.0;
+      canvas.drawLine(Offset(currentX, currentPos + 1), Offset(currentX + currentW, currentPos + 1), paint);
+      
+      paint.shader = LinearGradient(
+        colors: [Color(0xFF808080), Color(0xFFE0E0E0), Color(0xFF808080)],
+        stops: [0.0, 0.5, 1.0],
+      ).createShader(Rect.fromLTWH(currentX, currentPos - 1, currentW, 2));
+      
+      paint.strokeWidth = 2.5;
       canvas.drawLine(Offset(currentX, currentPos), Offset(currentX + currentW, currentPos), paint);
+      paint.shader = null;
+      
       currentFretStep *= spacingFactor;
     }
 
-    // --- CORDE ---
+    // --- 4. NUT (Capotasto) ---
+    paint.color = nutColor;
+    paint.strokeWidth = 7;
+    canvas.drawLine(Offset(nutXStart, nutY), Offset(nutXStart + nutWidth, nutY), paint);
+
+    // --- 5. CORDE E ANIMAZIONE CHICCA ---
     for (int i = 0; i < 6; i++) {
       double xNut = nutXStart + (i * (nutWidth / 5));
       double xBase = baseXStart + (i * (baseWidth / 5));
-      paint.color = stringMetal;
-      paint.strokeWidth = 3.5 - (i * 0.5); 
-      canvas.drawLine(Offset(xNut, 0), Offset(xBase, height), paint);
+      double sWidth = 4.0 - (i * 0.5);
+
+      // Identifichiamo se questa corda deve essere animata
+      bool isAnimatedString = isAnimatingFound && (i + 1 == stringFoundIdx);
+
+      if (!isAnimatedString) {
+        // OMBRA corda standard
+        canvas.drawLine(
+          Offset(xNut + 2.5, 0), Offset(xBase + 2.5, height),
+          Paint()..color = Colors.black.withOpacity(0.5)..strokeWidth = sWidth..isAntiAlias = true
+        );
+
+        // CORDA standard
+        paint.shader = ui.Gradient.linear(
+          Offset(xNut - 2, 0), Offset(xNut + 2, 0),
+          [Color(0xFF707070), Color(0xFFE0E0E0), Color(0xFF707070)],
+          [0.0, 0.5, 1.0],
+        );
+        paint.strokeWidth = sWidth;
+        canvas.drawLine(Offset(xNut, 0), Offset(xBase, height), paint);
+        paint.shader = null;
+      } else {
+        // --- EFFETTO GARAGEBAND ---
+        double startY;
+        if (fretFoundIdx == 0) {
+          startY = nutY / 2;
+        } else {
+          double prevP = fretPositions[fretFoundIdx - 1];
+          double currP = fretPositions[fretFoundIdx];
+          startY = prevP + (currP - prevP) / 2;
+        }
+
+        // Parte superiore (fissa)
+        paint.color = const Color(0xFFBDBDBD);
+        paint.strokeWidth = sWidth;
+        canvas.drawLine(Offset(xNut, 0), Offset(xNut, startY), paint);
+
+        // Parte inferiore (animata/sfumata)
+        paint.shader = ui.Gradient.linear(
+          Offset(xNut, startY),
+          Offset(xBase, height),
+          [const Color(0xFFE0E0E0).withOpacity(1.0 - animationValue), Colors.transparent],
+          [0.0, 1.0],
+        );
+        paint.strokeWidth = sWidth * 2.0 * (1.0 - animationValue / 2.0); 
+        canvas.drawLine(Offset(xNut, startY), Offset(xBase, height), paint);
+        paint.shader = null;
+      }
     }
 
+    // --- 6. NOTE (PUNTI DI GIOCO) ---
     _drawGameNotes(canvas, nutXStart, nutWidth, baseXStart, baseWidth, nutY, fretPositions);
   }
 
@@ -137,24 +220,28 @@ class GuitarNeckPainter extends CustomPainter {
     if (currentString < 1 || currentString > 6) return;
 
     void drawNoteDot(double x, double y, Color color) {
-      canvas.drawCircle(Offset(x, y), 13, Paint()..color = color.withAlpha(70));
-      canvas.drawCircle(Offset(x, y), 9, Paint()..color = color);
-      canvas.drawCircle(Offset(x, y), 9, Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 1.5);
+      canvas.drawCircle(Offset(x, y), 14, Paint()..color = color.withOpacity(0.3));
+      canvas.drawCircle(Offset(x, y), 10, Paint()..color = color);
+      canvas.drawCircle(Offset(x, y), 10, Paint()..color = Colors.white.withOpacity(0.8)..style = PaintingStyle.stroke..strokeWidth = 2);
     }
 
     double getXForStringAtY(int stringIdx, double y) {
       double xNut = nutX + (stringIdx * (nutW / 5));
       double xBase = baseX + (stringIdx * (baseW / 5));
-      return xNut + (xBase - xNut) * (y / fretPositions.last);
+      // Calcolo interpolato della X in base alla profondità Y
+      double totalH = fretPositions.isEmpty ? 1 : fretPositions.last;
+      return xNut + (xBase - xNut) * (y / totalH);
     }
 
     int sIdx = currentString - 1;
 
+    // Note trovate (Verdi)
     for (int f in foundFrets) {
       double dotY = (f == 0) ? nutY / 2 : fretPositions[f - 1] + (fretPositions[f] - fretPositions[f - 1]) / 2;
       drawNoteDot(getXForStringAtY(sIdx, dotY), dotY, Colors.greenAccent);
     }
 
+    // Suggerimento (Giallo) o Nota Bersaglio (Rossa)
     if (showAllNotes && openNoteIndex != -1 && targetNoteIndex != -1) {
       for (int f = 0; f <= frets; f++) {
         if ((openNoteIndex + f) % 12 == targetNoteIndex) {
@@ -169,5 +256,7 @@ class GuitarNeckPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant GuitarNeckPainter oldDelegate) => true;
+  bool shouldRepaint(covariant GuitarNeckPainter oldDelegate) {
+    return true; 
+  }
 }
