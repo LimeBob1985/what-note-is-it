@@ -32,16 +32,15 @@ class GuitarNeckPainter extends CustomPainter {
     
     final Paint paint = Paint()..isAntiAlias = true;
     
-    // --- CALCOLO PROPORZIONI (PIÙ STRETTE E GRANDI) ---
-    // Stringiamo il manico per renderlo più realistico (42mm -> 55.5mm proporzionale)
-    final double nutWidth = width * 0.38; // Ridotto da 0.45 per stringere le corde
-    final double scaleFactor = 1.32; 
+    // --- CALCOLO PROPORZIONI (PIÙ DRITTO) ---
+    final double nutWidth = width * 0.38; 
+    // Ridotto scaleFactor da 1.32 a 1.18 per rendere il manico meno trapezoidale
+    final double scaleFactor = 1.18; 
     final double baseWidth = nutWidth * scaleFactor;
 
     final double nutXStart = (width - nutWidth) / 2;
     final double baseXStart = (width - baseWidth) / 2;
     
-    // Alziamo il capotasto per sfruttare più spazio (meno eccesso sopra)
     final double nutY = height * 0.04; 
 
     double getWidthAtY(double y) {
@@ -82,14 +81,13 @@ class GuitarNeckPainter extends CustomPainter {
     // --- LOGICA TASTI ---
     List<double> fretPositions = [nutY];
     double currentPos = nutY;
-    final double spacingFactor = frets > 12 ? 0.962 : 0.945; // Leggera ottimizzazione spaziatura
+    final double spacingFactor = frets > 12 ? 0.962 : 0.945; 
     double totalRelativeScale = 0;
     double tempLength = 1.0;
     for (int i = 0; i < frets; i++) {
       totalRelativeScale += tempLength;
       tempLength *= spacingFactor;
     }
-    // Riduciamo l'eccesso in fondo (da 0.03 a 0.01) per ingrandire i tasti
     double unit = (height - nutY - (height * 0.01)) / totalRelativeScale;
     double currentFretStep = unit;
 
@@ -144,11 +142,9 @@ class GuitarNeckPainter extends CustomPainter {
       canvas.drawCircle(Offset(x, y), 9, Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 1.5);
     }
 
-    // Calcolo X preciso considerando l'inclinazione
     double getXForStringAtY(int stringIdx, double y) {
       double xNut = nutX + (stringIdx * (nutW / 5));
       double xBase = baseX + (stringIdx * (baseW / 5));
-      // Interpolazione lineare su tutta l'altezza
       return xNut + (xBase - xNut) * (y / fretPositions.last);
     }
 
