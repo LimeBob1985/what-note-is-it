@@ -1,3 +1,4 @@
+// lib/widgets/guitar_neck_painter.dart
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
 
@@ -35,8 +36,7 @@ class GuitarNeckPainter extends CustomPainter {
     final double width = size.width;
     final double height = size.height;
     
-    // Colori definiti
-    const Color neckBackground = Color(0xFF111111); // Grigio quasi nero richiesto
+    // --- COLORI DEFINITI ---
     const Color fretboardWood = Color(0xFF1A110D); 
     const Color nutColor = Color(0xFFE8E4D9); 
     
@@ -60,9 +60,17 @@ class GuitarNeckPainter extends CustomPainter {
       return (width - getWidthAtY(y)) / 2;
     }
 
-    // --- 1. SFONDO LATERALE (GRIGIO SCURISSIMO) ---
-    paint.color = neckBackground;
+    // --- 1. SFONDO LATERALE (GRADIENTE BLU SFUMATO DALL'ICONA) ---
+    paint.shader = ui.Gradient.linear(
+      const Offset(0, 0),
+      Offset(0, height),
+      [
+        const Color(0xFF030A14), // Blu molto scuro (alto)
+        const Color(0xFF062136), // Blu petrolio sfumato (basso)
+      ],
+    );
     canvas.drawRect(Rect.fromLTWH(0, 0, width, height), paint);
+    paint.shader = null; // Reset shader per gli altri elementi
 
     // --- 2. TASTIERA ---
     paint.color = fretboardWood;
@@ -121,7 +129,7 @@ class GuitarNeckPainter extends CustomPainter {
           final Paint inlayPaint = Paint()
             ..shader = ui.Gradient.radial(
               center,
-              8,
+              centerW / 12, // Dimensione proporzionale
               [Colors.white.withOpacity(0.6), Colors.white.withOpacity(0.1)],
               [0.1, 1.0],
             );
@@ -142,8 +150,8 @@ class GuitarNeckPainter extends CustomPainter {
       canvas.drawLine(Offset(currentX, currentPos + 1), Offset(currentX + currentW, currentPos + 1), paint);
       
       paint.shader = LinearGradient(
-        colors: [Color(0xFF808080), Color(0xFFE0E0E0), Color(0xFF808080)],
-        stops: [0.0, 0.5, 1.0],
+        colors: [const Color(0xFF808080), const Color(0xFFE0E0E0), const Color(0xFF808080)],
+        stops: const [0.0, 0.5, 1.0],
       ).createShader(Rect.fromLTWH(currentX, currentPos - 1, currentW, 2));
       
       paint.strokeWidth = 2.5;
@@ -164,27 +172,23 @@ class GuitarNeckPainter extends CustomPainter {
       double xBase = baseXStart + (i * (baseWidth / 5));
       double sWidth = 4.0 - (i * 0.5);
 
-      // Identifichiamo se questa corda deve essere animata
       bool isAnimatedString = isAnimatingFound && (i + 1 == stringFoundIdx);
 
       if (!isAnimatedString) {
-        // OMBRA corda standard
         canvas.drawLine(
           Offset(xNut + 2.5, 0), Offset(xBase + 2.5, height),
           Paint()..color = Colors.black.withOpacity(0.5)..strokeWidth = sWidth..isAntiAlias = true
         );
 
-        // CORDA standard
         paint.shader = ui.Gradient.linear(
           Offset(xNut - 2, 0), Offset(xNut + 2, 0),
-          [Color(0xFF707070), Color(0xFFE0E0E0), Color(0xFF707070)],
-          [0.0, 0.5, 1.0],
+          [const Color(0xFF707070), const Color(0xFFE0E0E0), const Color(0xFF707070)],
+          const [0.0, 0.5, 1.0],
         );
         paint.strokeWidth = sWidth;
         canvas.drawLine(Offset(xNut, 0), Offset(xBase, height), paint);
         paint.shader = null;
       } else {
-        // --- EFFETTO GARAGEBAND ---
         double startY;
         if (fretFoundIdx == 0) {
           startY = nutY / 2;
@@ -194,17 +198,15 @@ class GuitarNeckPainter extends CustomPainter {
           startY = prevP + (currP - prevP) / 2;
         }
 
-        // Parte superiore (fissa)
         paint.color = const Color(0xFFBDBDBD);
         paint.strokeWidth = sWidth;
         canvas.drawLine(Offset(xNut, 0), Offset(xNut, startY), paint);
 
-        // Parte inferiore (animata/sfumata)
         paint.shader = ui.Gradient.linear(
           Offset(xNut, startY),
           Offset(xBase, height),
           [const Color(0xFFE0E0E0).withOpacity(1.0 - animationValue), Colors.transparent],
-          [0.0, 1.0],
+          const [0.0, 1.0],
         );
         paint.strokeWidth = sWidth * 2.0 * (1.0 - animationValue / 2.0); 
         canvas.drawLine(Offset(xNut, startY), Offset(xBase, height), paint);
@@ -228,20 +230,17 @@ class GuitarNeckPainter extends CustomPainter {
     double getXForStringAtY(int stringIdx, double y) {
       double xNut = nutX + (stringIdx * (nutW / 5));
       double xBase = baseX + (stringIdx * (baseW / 5));
-      // Calcolo interpolato della X in base alla profondità Y
       double totalH = fretPositions.isEmpty ? 1 : fretPositions.last;
       return xNut + (xBase - xNut) * (y / totalH);
     }
 
     int sIdx = currentString - 1;
 
-    // Note trovate (Verdi)
     for (int f in foundFrets) {
       double dotY = (f == 0) ? nutY / 2 : fretPositions[f - 1] + (fretPositions[f] - fretPositions[f - 1]) / 2;
       drawNoteDot(getXForStringAtY(sIdx, dotY), dotY, Colors.greenAccent);
     }
 
-    // Suggerimento (Giallo) o Nota Bersaglio (Rossa)
     if (showAllNotes && openNoteIndex != -1 && targetNoteIndex != -1) {
       for (int f = 0; f <= frets; f++) {
         if ((openNoteIndex + f) % 12 == targetNoteIndex) {
