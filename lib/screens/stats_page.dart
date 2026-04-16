@@ -22,7 +22,6 @@ class _StatsPageState extends State<StatsPage> {
     final prefs = await SharedPreferences.getInstance();
     List<Map<String, dynamic>> tempSpecs = [];
 
-    // Carichiamo gli ultimi 30 giorni
     for (int i = 29; i >= 0; i--) {
       DateTime date = DateTime.now().subtract(Duration(days: i));
       String dateStr = date.toString().split(' ')[0];
@@ -67,8 +66,8 @@ class _StatsPageState extends State<StatsPage> {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F0F),
       appBar: AppBar(
-        // MODIFICATO: Ora visualizza solo "STATS"
-        title: const Text("STATS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        // MODIFICATO: Stesso stile della pagina SCORE
+        title: const Text("STATS", style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -104,33 +103,54 @@ class _StatsPageState extends State<StatsPage> {
                   _buildSectionTitle("ANDAMENTO ACCURACY"),
                   const SizedBox(height: 10),
                   
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    reverse: true,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Column(
-                        children: [
-                          SizedBox(
-                            height: 150,
-                            width: historicalData.length * 50.0, 
-                            child: CustomPaint(
-                              painter: _LineChartPainter(historicalData),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Row(
-                            children: historicalData.map((data) => SizedBox(
-                              width: 50,
-                              child: Text("${data['dayNumber']}\n${data['dayName']}", 
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(color: Colors.white24, fontSize: 8),
+                  // CONTENITORE GRAFICO CON SCALA FISSA A DESTRA
+                  Stack(
+                    children: [
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        reverse: true,
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 20, right: 60), // Spazio a destra per la scala
+                          child: Column(
+                            children: [
+                              SizedBox(
+                                height: 150,
+                                width: historicalData.length * 50.0, 
+                                child: CustomPaint(
+                                  painter: _LineChartPainter(historicalData),
+                                ),
                               ),
-                            )).toList(),
-                          )
-                        ],
+                              const SizedBox(height: 10),
+                              Row(
+                                children: historicalData.map((data) => SizedBox(
+                                  width: 50,
+                                  child: Text("${data['dayNumber']}\n${data['dayName']}", 
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(color: Colors.white24, fontSize: 8),
+                                  ),
+                                )).toList(),
+                              )
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+                      // SCALA FISSA A DESTRA
+                      Positioned(
+                        right: 15,
+                        top: 0,
+                        height: 150,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _buildYAxisLabel("100%"),
+                            _buildYAxisLabel("75%"),
+                            _buildYAxisLabel("50%"),
+                            _buildYAxisLabel("25%"),
+                            _buildYAxisLabel("0%"),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                   
                   const SizedBox(height: 50),
@@ -142,6 +162,10 @@ class _StatsPageState extends State<StatsPage> {
               ),
             ),
     );
+  }
+
+  Widget _buildYAxisLabel(String label) {
+    return Text(label, style: const TextStyle(color: Colors.orangeAccent, fontSize: 8, fontWeight: FontWeight.bold));
   }
 
   Widget _buildSectionTitle(String title) {
@@ -232,6 +256,16 @@ class _LineChartPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (data.isEmpty) return;
+
+    // Linee guida orizzontali (opzionali, aiutano a leggere i valori mentre si scorre)
+    final paintGrid = Paint()
+      ..color = Colors.white.withOpacity(0.05)
+      ..strokeWidth = 1;
+
+    for (int j = 0; j <= 4; j++) {
+      double yGrid = size.height * (j / 4);
+      canvas.drawLine(Offset(0, yGrid), Offset(size.width, yGrid), paintGrid);
+    }
 
     final paintLine = Paint()
       ..color = Colors.orangeAccent

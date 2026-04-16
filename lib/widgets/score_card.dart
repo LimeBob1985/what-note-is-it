@@ -23,7 +23,7 @@ class ScoreCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(
           color: isBest ? Colors.orangeAccent : Colors.white10,
@@ -36,7 +36,11 @@ class ScoreCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(title.toUpperCase(), style: TextStyle(color: isBest ? Colors.orangeAccent : Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
+              Text(title.toUpperCase(),
+                  style: TextStyle(
+                      color: isBest ? Colors.orangeAccent : Colors.white54,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold)),
               if (isBest) const Icon(Icons.star, color: Colors.orangeAccent, size: 14),
             ],
           ),
@@ -54,11 +58,21 @@ class ScoreCard extends StatelessWidget {
   }
 
   Widget _scoreSection() {
+    // --- MODIFICA COLORE: Usiamo Colors.orangeAccent per uniformità con SCORE ---
+    final Color scoreColor = isBest ? Colors.orangeAccent : const Color(0xFF448AFF); // BlueAccent standard
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("$score", style: TextStyle(color: isBest ? Colors.orangeAccent : Colors.white, fontSize: 34, fontWeight: FontWeight.w900, height: 1)),
-        const Text("PUNTI TOTALI", style: TextStyle(color: Colors.white24, fontSize: 8, fontWeight: FontWeight.bold)),
+        Text("$score",
+            style: TextStyle(
+                color: scoreColor,
+                fontSize: 34,
+                fontWeight: FontWeight.w900,
+                height: 1)),
+        const Text("PUNTI TOTALI",
+            style: TextStyle(
+                color: Colors.white24, fontSize: 8, fontWeight: FontWeight.bold)),
       ],
     );
   }
@@ -67,15 +81,18 @@ class ScoreCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Text(mode, style: const TextStyle(color: Colors.white38, fontSize: 7, fontWeight: FontWeight.bold)),
+        Text(mode,
+            style: const TextStyle(
+                color: Colors.white38, fontSize: 7, fontWeight: FontWeight.bold)),
         const SizedBox(height: 4),
         Row(
           children: [
+            // Ordine richiesto: ESATTE (verde) | DATE (bianco) | ERRATE (rosso)
             _miniStat(correct.toString(), "ESATTE", Colors.greenAccent),
             const SizedBox(width: 15),
-            _miniStat(wrong.toString(), "ERRATE", Colors.redAccent),
+            _miniStat((correct + wrong).toString(), "DATE", Colors.white),
             const SizedBox(width: 15),
-            _miniStat((correct + wrong).toString(), "DATE", Colors.blueAccent),
+            _miniStat(wrong.toString(), "ERRATE", Colors.redAccent),
           ],
         ),
       ],
@@ -85,8 +102,12 @@ class ScoreCard extends StatelessWidget {
   Widget _miniStat(String val, String label, Color color) {
     return Column(
       children: [
-        Text(val, style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.bold)),
-        Text(label, style: const TextStyle(color: Colors.white38, fontSize: 7, fontWeight: FontWeight.bold)),
+        Text(val,
+            style: TextStyle(
+                color: color, fontSize: 18, fontWeight: FontWeight.bold)),
+        Text(label,
+            style: const TextStyle(
+                color: Colors.white38, fontSize: 7, fontWeight: FontWeight.bold)),
       ],
     );
   }

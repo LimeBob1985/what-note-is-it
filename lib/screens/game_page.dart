@@ -88,7 +88,14 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     if (correct > highScore) {
       final prefs = await SharedPreferences.getInstance();
       String key = "best_${widget.mode}_${widget.frets}_${widget.timer ?? 0}";
+      
+      // Salva il punteggio totale
       await prefs.setInt(key, correct);
+      
+      // SALVATAGGIO PARAMETRI DETTAGLIATI RECORD
+      await prefs.setInt("${key}_correct", correct);
+      await prefs.setInt("${key}_wrong", wrong);
+      
       setState(() => highScore = correct);
     }
   }
@@ -134,6 +141,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
 
   void handleGameOver() {
     _timer?.cancel();
+    updateHighScore(); // Assicura che l'ultimo record sia salvato prima di chiudere
     _finalizeSession();
     showDialog(
       context: context,
@@ -150,7 +158,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
           textAlign: TextAlign.center, 
           style: const TextStyle(color: Colors.white)
         ),
-        actionsAlignment: MainAxisAlignment.center, // Centra il tasto nelle azioni
+        actionsAlignment: MainAxisAlignment.center, 
         actions: [
           TextButton(
             onPressed: () {
@@ -218,6 +226,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
           if (widget.timer != null) startTimer();
         } else {
           wrong++;
+          updateHighScore(); // Aggiorna per includere l'errore nel record se il punteggio era alto
           if (wrong >= 3) handleGameOver();
         }
       } else {
@@ -240,6 +249,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
           total++;
           wrong++;
           _saveStats(false);
+          updateHighScore();
           if (wrong >= 3) handleGameOver();
         }
       }
@@ -378,6 +388,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
                                   wrong++;
                                   total++;
                                   _saveStats(false);
+                                  updateHighScore(); // Salva errori nel record
                                   if (wrong >= 3) handleGameOver();
                                 });
                               }
